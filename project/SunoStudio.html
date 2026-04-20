@@ -1,0 +1,3511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SunoStudio — AI Music Creation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+/* SunoStudio — dark studio console */
+:root {
+  --bg: oklch(0.14 0.008 260);
+  --bg-1: oklch(0.17 0.010 260);
+  --bg-2: oklch(0.205 0.012 260);
+  --bg-3: oklch(0.245 0.013 260);
+  --line: oklch(0.30 0.012 260);
+  --line-2: oklch(0.38 0.015 260);
+  --fg: oklch(0.96 0.005 260);
+  --fg-1: oklch(0.78 0.008 260);
+  --fg-2: oklch(0.58 0.010 260);
+  --fg-3: oklch(0.42 0.010 260);
+  --accent: oklch(0.88 0.22 130);
+  --accent-soft: oklch(0.88 0.22 130 / 0.14);
+  --accent-line: oklch(0.88 0.22 130 / 0.45);
+  --warn: oklch(0.80 0.17 55);
+  --err: oklch(0.72 0.22 25);
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: "Inter Tight", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, textarea, select { font: inherit; color: inherit; }
+input:focus, textarea:focus, select:focus { outline: none; }
+
+.mono { font-family: var(--mono); font-feature-settings: "zero", "ss02"; letter-spacing: 0.01em; }
+.uc { text-transform: uppercase; letter-spacing: 0.08em; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Scrollbars — hidden by default, appear on hover/scroll */
+.scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.scroll:hover, .scroll:focus, .scroll.is-scrolling { scrollbar-color: var(--bg-3) transparent; }
+.scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+.scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color .2s;
+}
+.scroll:hover::-webkit-scrollbar-thumb,
+.scroll.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--bg-3);
+  background-clip: padding-box;
+}
+.scroll:hover::-webkit-scrollbar-thumb:hover,
+.scroll.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background-color: var(--line);
+  background-clip: padding-box;
+}
+
+/* Also apply to any overflow containers without .scroll */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color .2s;
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--bg-3);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--line);
+  background-clip: padding-box;
+}
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*:hover { scrollbar-color: var(--bg-3) transparent; }
+
+/* App shell */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr 380px;
+  grid-template-rows: 48px 1fr 64px;
+  grid-template-areas:
+    "top    top     top"
+    "nav    main    aside"
+    "player player  player";
+  height: 100vh;
+  width: 100vw;
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+  gap: 16px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.brand-mark {
+  width: 18px; height: 18px;
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: var(--bg);
+  clip-path: polygon(0 50%, 25% 20%, 50% 80%, 75% 10%, 100% 50%);
+}
+
+.top-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+.top-status > span {
+  display: inline-flex;
+  align-items: center;
+}
+.top-status .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  display: inline-block;
+  margin-right: 6px;
+  flex: none;
+}
+
+/* Left nav */
+.nav {
+  grid-area: nav;
+  border-right: 1px solid var(--line);
+  background: var(--bg-1);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+.nav-sec {
+  padding: 16px 20px 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-1);
+  border-left: 2px solid transparent;
+  transition: background .12s, color .12s, border-color .12s;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.nav-item:hover { background: var(--bg-2); color: var(--fg); }
+.nav-item.active {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+.nav-item .badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  background: var(--bg-3);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.nav-item.active .badge { color: var(--accent); background: var(--accent-soft); }
+
+.nav-foot {
+  margin-top: auto;
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  line-height: 1.6;
+  border-top: 1px solid var(--line);
+}
+
+/* Main panel */
+.main {
+  grid-area: main;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.aside {
+  grid-area: aside;
+  border-left: 1px solid var(--line);
+  background: var(--bg-1);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Player */
+.player {
+  grid-area: player;
+  border-top: 1px solid var(--line);
+  background: var(--bg-1);
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  align-items: center;
+  padding: 0 20px;
+  gap: 24px;
+}
+
+/* Headings */
+.h-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.h-display {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+/* Sections */
+.section {
+  padding: 28px 32px;
+  border-bottom: 1px solid var(--line);
+}
+.section.no-underline { border-bottom: 0; }
+.main > .section:last-child { border-bottom: 0; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 24px;
+}
+.section-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.section-head .muted {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+}
+
+/* Form controls */
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field-row { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+.label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.label .count {
+  color: var(--fg-3);
+  font-size: 10px;
+}
+
+.input, .textarea, .select {
+  width: 100%;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  padding: 10px 12px;
+  font-family: var(--sans);
+  font-size: 14px;
+  border-radius: 2px;
+  transition: border-color .12s, background .12s;
+}
+.input:focus, .textarea:focus {
+  border-color: var(--accent-line);
+  background: var(--bg-2);
+}
+
+/* Custom Select */
+.select-ui {
+  position: relative;
+  outline: none;
+  font-family: var(--mono);
+}
+.select-ui:not(.mono) { font-family: var(--sans); }
+.select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  border-radius: 2px;
+  text-align: left;
+  transition: border-color .12s, background .12s;
+  cursor: pointer;
+}
+.select-ui:focus-within .select-trigger,
+.select-ui.open .select-trigger {
+  border-color: var(--accent-line);
+  background: var(--bg-2);
+}
+.select-val {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-caret {
+  display: inline-flex;
+  color: var(--fg-2);
+  transition: transform .15s, color .15s;
+}
+.select-ui.open .select-caret { transform: rotate(180deg); color: var(--accent); }
+
+.select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  padding: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  box-shadow: 0 12px 32px -12px rgba(0,0,0,0.7), 0 0 0 1px var(--bg);
+  animation: selMenuIn .12s ease-out;
+}
+@keyframes selMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.select-opt {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 1px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+  transition: background .08s, color .08s;
+}
+.select-opt.foc { background: var(--bg-3); color: var(--fg); }
+.select-opt.sel { color: var(--accent); }
+.select-opt.sel.foc { background: var(--accent-soft); }
+.select-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: var(--sans);
+  line-height: 1.5;
+}
+.textarea.lyrics {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  min-height: 140px;
+}
+.input.mono { font-family: var(--mono); font-size: 12px; }
+
+/* Segmented */
+.seg {
+  display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 2px;
+  gap: 2px;
+  background: var(--bg-1);
+}
+.seg button {
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  border-radius: 1px;
+}
+.seg button.on {
+  background: var(--bg-3);
+  color: var(--fg);
+}
+.seg.accent button.on {
+  background: var(--accent);
+  color: #0a0d09;
+}
+
+/* Slider */
+.slider-wrap { display: flex; flex-direction: column; gap: 10px; }
+.slider-track-wrap {
+  position: relative;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--bg-3);
+  border-radius: 2px;
+  outline: none;
+  position: relative;
+  z-index: 2;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: var(--accent);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.slider-ticks {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.slider-ticks .t {
+  flex: 1;
+  height: 8px;
+  border-left: 1px solid var(--line);
+}
+.slider-ticks .t:first-child { border-left: 0; }
+.slider-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+.slider-foot {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Chip / tag */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-1);
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.chip:hover { border-color: var(--line-2); color: var(--fg); }
+.chip.on {
+  border-color: var(--accent-line);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.chip .x {
+  color: var(--fg-3);
+  font-size: 11px;
+  line-height: 1;
+}
+.chip.on .x { color: var(--accent); }
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  background: var(--bg-2);
+  border-radius: 2px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.btn:hover { background: var(--bg-3); border-color: var(--line-2); }
+.btn.primary {
+  background: var(--accent);
+  color: #0a0d09;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn.primary:hover { filter: brightness(1.05); }
+.btn.primary:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 10px; font-size: 10px; }
+.btn.icon { padding: 8px; min-width: 32px; }
+
+/* Prompt list */
+.prompt-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 28px;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.prompt-row:last-child { border-bottom: 0; }
+.prompt-row .idx {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  padding-top: 12px;
+}
+.prompt-row .del {
+  color: var(--fg-3);
+  padding-top: 10px;
+  font-size: 14px;
+}
+.prompt-row .del:hover { color: var(--err); }
+
+.prompt-subrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+/* Inspiration tags */
+.tag-wall { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Batch & job card */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+.batch-bar .meter {
+  flex: 1;
+  height: 3px;
+  background: var(--bg-3);
+  overflow: hidden;
+  position: relative;
+}
+.batch-bar .meter .fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .4s ease;
+}
+.batch-bar .num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-1);
+}
+
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.job {
+  display: grid;
+  grid-template-columns: 20px 1fr 120px 80px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.job.ok { border-color: var(--accent-line); }
+.job.err { border-color: var(--err); }
+.job .sig {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--fg-3);
+}
+.job.running .sig { background: var(--warn); box-shadow: 0 0 6px var(--warn); animation: pulse 1.2s infinite; }
+.job.ok .sig { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.job.err .sig { background: var(--err); }
+.job .id { font-family: var(--mono); font-size: 11px; color: var(--fg-2); }
+.job .id b { color: var(--fg); font-weight: 500; }
+.job .stage {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.job .timer { font-family: var(--mono); font-size: 11px; color: var(--fg-3); text-align: right; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Waveform */
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+}
+.wave .b {
+  flex: 1;
+  background: var(--fg-3);
+  border-radius: 1px;
+  transition: background .2s, transform .2s;
+}
+.wave.active .b { background: var(--accent); }
+.wave.pending .b { background: var(--line); animation: wpend 1.4s infinite; }
+@keyframes wpend {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* Track row (library) */
+.track-list {
+  display: flex;
+  flex-direction: column;
+}
+.track {
+  display: grid;
+  grid-template-columns: 48px 56px 1fr 140px 110px 90px 60px 40px;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  transition: background .1s;
+  cursor: pointer;
+}
+.track:hover { background: var(--bg-1); }
+.track.playing { background: var(--bg-2); }
+.track .num { font-family: var(--mono); font-size: 11px; color: var(--fg-3); }
+.track.playing .num { color: var(--accent); }
+.track .cover {
+  width: 44px; height: 44px;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-2);
+  flex-shrink: 0;
+}
+.track .title-block { min-width: 0; }
+.track .title {
+  font-size: 14px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.track .sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+.track .tags {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track .dur {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  text-align: right;
+}
+.track .mode-pill {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  color: var(--fg-2);
+  border-radius: 2px;
+  text-align: center;
+}
+.track .fav {
+  color: var(--fg-3);
+  font-size: 14px;
+  padding: 4px;
+}
+.track .fav.on { color: var(--accent); }
+.track .menu { color: var(--fg-3); }
+
+.track-header {
+  display: grid;
+  grid-template-columns: 48px 56px 1fr 140px 110px 90px 60px 40px;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  background: var(--bg-1);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* Library toolbar */
+.lib-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.search {
+  flex: 1;
+  max-width: 380px;
+  position: relative;
+}
+.search input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 8px 12px 8px 34px;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: 2px;
+}
+.search .ic {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Aside: now-playing / results feed */
+.aside-head {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.aside-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.result-card {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  border-radius: 2px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  transition: border-color .12s;
+}
+.result-card:hover { border-color: var(--line-2); }
+.result-card.fresh { border-color: var(--accent-line); animation: fresh 1.2s ease-out; }
+@keyframes fresh {
+  0% { background: var(--accent-soft); }
+  100% { background: var(--bg-2); }
+}
+.result-card .rc-cover {
+  width: 44px; height: 44px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.result-card .rc-body { flex: 1; min-width: 0; }
+.result-card .rc-title {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-card .rc-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  margin-top: 2px;
+}
+.result-card .rc-play {
+  width: 30px; height: 30px;
+  background: var(--bg-3);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--fg);
+}
+.result-card:hover .rc-play { background: var(--accent); color: #0a0d09; }
+
+/* Player bar */
+.player-left, .player-right { display: flex; align-items: center; gap: 12px; }
+.player-right { justify-content: flex-end; }
+.player-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--fg-1);
+}
+.player-controls .play {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  display: grid; place-items: center;
+}
+.player-bar-wrap { width: 100%; max-width: 480px; display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10px; color: var(--fg-3); }
+.player-bar {
+  flex: 1; height: 3px;
+  background: var(--bg-3);
+  position: relative;
+}
+.player-bar .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+}
+.player-bar .head {
+  position: absolute;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.player-track-info { min-width: 0; display: flex; gap: 10px; align-items: center; }
+.player-track-info .title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.player-track-info .sub { font-family: var(--mono); font-size: 10px; color: var(--fg-3); }
+
+/* Tweaks panel */
+.tweaks {
+  position: fixed;
+  right: 20px;
+  bottom: 84px;
+  width: 280px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  padding: 16px;
+  z-index: 100;
+  box-shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+.tweaks.on { display: flex; }
+.tweaks h3 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  outline: 1px solid var(--line);
+  cursor: pointer;
+}
+.swatch.on { outline: 2px solid var(--accent); }
+.tweaks select { width: 100%; }
+
+/* Misc */
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 24px 0;
+}
+.kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--fg-2);
+}
+.hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.toast-host {
+  position: fixed;
+  top: 62px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+.toast {
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg);
+  border-radius: 2px;
+  animation: toastin .3s;
+  min-width: 240px;
+}
+.toast.err { border-left-color: var(--err); }
+@keyframes toastin {
+  from { opacity: 0; transform: translateX(12px); }
+}
+
+/* Empty state */
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  line-height: 1.8;
+}
+
+/* Stat row */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.stat {
+  background: var(--bg-1);
+  padding: 14px 16px;
+}
+.stat .k {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-bottom: 6px;
+}
+.stat .v {
+  font-family: var(--mono);
+  font-size: 20px;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+.stat .v .unit { font-size: 11px; color: var(--fg-3); margin-left: 4px; }
+
+/* ==== Simple mode ==== */
+.warn-line {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  letter-spacing: 0.02em;
+}
+.warn-line.err { color: var(--err, oklch(0.72 0.19 28)); }
+.warn-line .warn-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.saved-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: 2px;
+}
+
+.simple-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.simple-track {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 16px;
+  align-items: stretch;
+  padding: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+.simple-track-cover {
+  width: 80px; height: 80px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.simple-track-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.simple-track-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.simple-track-title {
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--fg);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.simple-track-tags {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 520px;
+}
+.simple-track-player audio {
+  width: 100%;
+  height: 32px;
+  filter: invert(0.92) hue-rotate(180deg) saturate(0.1);
+  border-radius: 2px;
+}
+
+/* ==== Dialog ==== */
+.dlg-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(6, 8, 6, 0.72);
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  animation: dlgFade 140ms ease-out;
+}
+.dlg-panel {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  box-shadow:
+    0 24px 60px -20px rgba(0, 0, 0, 0.8),
+    0 0 0 1px var(--bg) inset;
+  border-radius: 3px;
+  animation: dlgPop 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 64px);
+  position: relative;
+}
+.dlg-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, var(--accent-soft) 0%, transparent 60%);
+  opacity: 0.35;
+  mix-blend-mode: screen;
+}
+.dlg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 0px;
+}
+.dlg-title {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0;
+  text-wrap: pretty;
+}
+.dlg-x {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fg-2);
+  width: 26px; height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.dlg-x:hover {
+  color: var(--fg);
+  background: var(--bg-2);
+  border-color: var(--fg-3);
+}
+.dlg-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+.dlg-text {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+.dlg-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.btn.danger {
+  background: oklch(0.68 0.19 28);
+  color: #140808;
+  border-color: oklch(0.68 0.19 28);
+}
+.btn.danger:hover {
+  background: oklch(0.74 0.20 28);
+  border-color: oklch(0.74 0.20 28);
+}
+
+@keyframes dlgFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dlgPop {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const TWEAK_DEFAULTS = {
+  "accent": "lime",
+  "fontPair": "mono-sans"
+};
+window.__TWEAKS = TWEAK_DEFAULTS;
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+// === data.jsx ===
+// data.jsx — mock tracks + prompt presets
+
+const GENRES = ["pop", "lo-fi", "ambient", "folk", "synthwave", "indie", "dream-pop", "drill", "post-rock", "trap soul", "bossa nova", "dark jazz"];
+const MOODS = ["nostalgic", "euphoric", "melancholic", "hypnotic", "dreamy", "gritty", "warm", "crystalline", "feverish", "sunlit", "after-hours"];
+const INSTRUMENTS = ["warm pads", "tape saturation", "808s", "brushed drums", "nylon guitar", "Juno-60", "Rhodes", "analog drums", "vinyl crackle", "sub bass"];
+const VOCALS = ["female vocal", "male vocal", "airy vocal", "baritone vocal", "falsetto", "spoken word"];
+
+const MOCK_TRACKS = [
+  {
+    id: "t01", sunoId: "suno_9af23", taskId: "tk_4b91",
+    title: "Lantern Fields at 3AM",
+    prompt: "lo-fi, late-night drive, pressed tape cassette vibes",
+    tags: "lo-fi, chillhop, warm pads, vinyl crackle",
+    duration: 183, mode: "advanced", promptMode: "single", model: "V5",
+    instrumental: false, isFavorite: true, vocalGender: "f",
+    createdAt: "2026-04-19T22:14:00Z",
+    palette: ["#d4e85c", "#1d2a14", "#6a7a3a"]
+  },
+  {
+    id: "t02", sunoId: "suno_9af24", taskId: "tk_4b91",
+    title: "Moths Around a Streetlamp",
+    prompt: "lo-fi, late-night drive, pressed tape cassette vibes",
+    tags: "lo-fi, chillhop, Rhodes, brushed drums",
+    duration: 172, mode: "advanced", promptMode: "single", model: "V5",
+    instrumental: false, isFavorite: false, vocalGender: "f",
+    createdAt: "2026-04-19T22:14:00Z",
+    palette: ["#e8a65c", "#2a1c14", "#7a5a3a"]
+  },
+  {
+    id: "t03", sunoId: "suno_ab112", taskId: "tk_5c02",
+    title: "Paper Kites Over Gowanus",
+    prompt: "dream-pop, reverb-washed guitars, breathy female vocal, 4/4 shuffle",
+    tags: "dream-pop, shoegaze, airy vocal, reverb",
+    duration: 221, mode: "advanced", promptMode: "multi", model: "V5_5",
+    instrumental: false, isFavorite: true, vocalGender: "f",
+    createdAt: "2026-04-19T20:02:00Z",
+    palette: ["#c7a8ff", "#1a1428", "#5a4890"]
+  },
+  {
+    id: "t04", sunoId: "suno_ab113", taskId: "tk_5c02",
+    title: "Slow Mercury",
+    prompt: "dream-pop, reverb-washed guitars, breathy female vocal, 4/4 shuffle",
+    tags: "dream-pop, shoegaze, airy vocal",
+    duration: 205, mode: "advanced", promptMode: "multi", model: "V5_5",
+    instrumental: false, isFavorite: false, vocalGender: "f",
+    createdAt: "2026-04-19T20:02:00Z",
+    palette: ["#a8c7ff", "#14142a", "#4858a0"]
+  },
+  {
+    id: "t05", sunoId: "suno_cc901", taskId: "tk_6d11",
+    title: "Coral Static",
+    prompt: "ambient, drone, slow-moving overtones, no drums",
+    tags: "ambient, drone, texture, cinematic",
+    duration: 348, mode: "simple", promptMode: "single", model: "V5",
+    instrumental: true, isFavorite: false, vocalGender: null,
+    createdAt: "2026-04-19T18:45:00Z",
+    palette: ["#ff7d66", "#281414", "#a04a3a"]
+  },
+  {
+    id: "t06", sunoId: "suno_cc902", taskId: "tk_6d11",
+    title: "Low Tide, Soft Weather",
+    prompt: "ambient, drone, slow-moving overtones, no drums",
+    tags: "ambient, drone, field recording",
+    duration: 302, mode: "simple", promptMode: "single", model: "V5",
+    instrumental: true, isFavorite: true, vocalGender: null,
+    createdAt: "2026-04-19T18:45:00Z",
+    palette: ["#66d4ff", "#142028", "#3a7090"]
+  },
+  {
+    id: "t07", sunoId: "suno_de553", taskId: "tk_7e22",
+    title: "Porchlight, Alabama",
+    prompt: "indie folk, fingerpicked acoustic, male vocal, 6/8 sway",
+    tags: "folk, acoustic, male vocal, storytelling",
+    duration: 214, mode: "advanced", promptMode: "single", model: "V4_5PLUS",
+    instrumental: false, isFavorite: false, vocalGender: "m",
+    createdAt: "2026-04-19T16:12:00Z",
+    palette: ["#e8c25c", "#2a2414", "#8a7a3a"]
+  },
+  {
+    id: "t08", sunoId: "suno_de554", taskId: "tk_7e22",
+    title: "The River Was Nothing Then",
+    prompt: "indie folk, fingerpicked acoustic, male vocal, 6/8 sway",
+    tags: "folk, acoustic, male vocal",
+    duration: 198, mode: "advanced", promptMode: "single", model: "V4_5PLUS",
+    instrumental: false, isFavorite: true, vocalGender: "m",
+    createdAt: "2026-04-19T16:12:00Z",
+    palette: ["#b8e85c", "#1a2814", "#5a8a3a"]
+  },
+  {
+    id: "t09", sunoId: "suno_fa071", taskId: "tk_8f33",
+    title: "Neon on the 405",
+    prompt: "synthwave, driving arpeggios, 120bpm, Juno-60 lead",
+    tags: "synthwave, retrowave, Juno-60, arpeggio",
+    duration: 234, mode: "advanced", promptMode: "multi", model: "V5",
+    instrumental: true, isFavorite: true, vocalGender: null,
+    createdAt: "2026-04-19T14:30:00Z",
+    palette: ["#ff5ce8", "#14142a", "#a03a90"]
+  },
+  {
+    id: "t10", sunoId: "suno_fa072", taskId: "tk_8f33",
+    title: "Venice Lights Out",
+    prompt: "synthwave, driving arpeggios, 120bpm, Juno-60 lead",
+    tags: "synthwave, retrowave, dark",
+    duration: 246, mode: "advanced", promptMode: "multi", model: "V5",
+    instrumental: true, isFavorite: false, vocalGender: null,
+    createdAt: "2026-04-19T14:30:00Z",
+    palette: ["#5ce8ff", "#141a28", "#3a90a0"]
+  },
+  {
+    id: "t11", sunoId: "suno_ga441", taskId: "tk_9g44",
+    title: "Paper Rings / Glass Teeth",
+    prompt: "bedroom pop, lo-fi drums, whispered female vocal, doubled guitars",
+    tags: "bedroom-pop, lo-fi, whispered vocal",
+    duration: 167, mode: "simple", promptMode: "multi", model: "V5",
+    instrumental: false, isFavorite: false, vocalGender: "f",
+    createdAt: "2026-04-18T22:11:00Z",
+    palette: ["#ff8fa8", "#281418", "#a03a58"]
+  },
+  {
+    id: "t12", sunoId: "suno_ga442", taskId: "tk_9g44",
+    title: "Telephone Wire Sonata",
+    prompt: "post-rock, slow crescendo, tremolo guitars, no vocal",
+    tags: "post-rock, instrumental, crescendo",
+    duration: 412, mode: "advanced", promptMode: "multi", model: "V5_5",
+    instrumental: true, isFavorite: true, vocalGender: null,
+    createdAt: "2026-04-18T19:42:00Z",
+    palette: ["#8fffa8", "#142818", "#3aa058"]
+  },
+  {
+    id: "t13", sunoId: "suno_hb551", taskId: "tk_ah55",
+    title: "Midnight Bossa, Quiet Room",
+    prompt: "bossa nova, nylon guitar, brushed drums, Portuguese whisper",
+    tags: "bossa nova, nylon guitar, intimate",
+    duration: 188, mode: "advanced", promptMode: "single", model: "V5",
+    instrumental: false, isFavorite: true, vocalGender: "f",
+    createdAt: "2026-04-18T12:08:00Z",
+    palette: ["#c2a87a", "#241c14", "#806040"]
+  },
+  {
+    id: "t14", sunoId: "suno_ic661", taskId: "tk_bi66",
+    title: "Sub Rosa (Demo)",
+    prompt: "dark jazz, noir, muted trumpet, upright bass, after-hours bar",
+    tags: "dark jazz, noir, trumpet, upright bass",
+    duration: 276, mode: "advanced", promptMode: "single", model: "V5_5",
+    instrumental: true, isFavorite: false, vocalGender: null,
+    createdAt: "2026-04-17T23:19:00Z",
+    palette: ["#a88ff5", "#1a1428", "#604aa0"]
+  },
+];
+
+const INSPIRATION_TAGS = [
+  "lo-fi", "dream-pop", "ambient", "synthwave", "indie folk", "bedroom pop",
+  "post-rock", "dark jazz", "bossa nova", "trap soul", "drill",
+  "warm pads", "tape saturation", "808s", "vinyl crackle", "nylon guitar",
+  "Juno-60", "Rhodes", "reverb-washed", "breathy vocal", "4/4 shuffle",
+  "120bpm", "slow crescendo", "field recording", "no drums",
+];
+
+const MODEL_OPTIONS = [
+  { value: "V5_5", label: "V5.5 — latest, longest context" },
+  { value: "V5", label: "V5 — fast, high fidelity" },
+  { value: "V4_5PLUS", label: "V4.5+ — vocal-focused" },
+  { value: "V4_5ALL", label: "V4.5 — compatibility" },
+  { value: "V4_5", label: "V4.5 — legacy" },
+  { value: "V4", label: "V4 — legacy, cheapest" },
+];
+
+window.MOCK_TRACKS = MOCK_TRACKS;
+window.INSPIRATION_TAGS = INSPIRATION_TAGS;
+window.MODEL_OPTIONS = MODEL_OPTIONS;
+window.GENRES = GENRES;
+window.MOODS = MOODS;
+window.INSTRUMENTS = INSTRUMENTS;
+window.VOCALS = VOCALS;
+
+
+// === covers.jsx ===
+// covers.jsx — deterministic generative cover art per track
+// Pattern picked from track.id hash; colors from track.palette.
+
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function rng(seed) {
+  let s = seed || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+function Cover({ track, size = 44, animated = false }) {
+  const seed = React.useMemo(() => hashStr(track.id || track.sunoId || "x"), [track.id, track.sunoId]);
+  const variant = seed % 7;
+  const [c1, c2, c3] = track.palette || ["#d4e85c", "#1d2a14", "#6a7a3a"];
+  const r = rng(seed);
+  const id = `cov-${track.id}`;
+
+  const common = { width: size, height: size, viewBox: "0 0 100 100", style: { display: "block" } };
+
+  switch (variant) {
+    case 0: {
+      // concentric arcs
+      return (
+        <svg {...common}>
+          <rect width="100" height="100" fill={c2} />
+          {[42, 32, 22, 12].map((rr, i) => (
+            <circle key={i} cx="30" cy="70" r={rr} fill="none" stroke={i % 2 ? c1 : c3} strokeWidth="2.5" />
+          ))}
+        </svg>
+      );
+    }
+    case 1: {
+      // stacked horizontal bars
+      const bars = Array.from({ length: 7 }, () => r());
+      return (
+        <svg {...common}>
+          <rect width="100" height="100" fill={c2} />
+          {bars.map((b, i) => (
+            <rect key={i} x={8} y={10 + i * 11} width={10 + b * 80} height={6} fill={i % 3 === 0 ? c1 : c3} />
+          ))}
+        </svg>
+      );
+    }
+    case 2: {
+      // grid of dots
+      return (
+        <svg {...common}>
+          <rect width="100" height="100" fill={c2} />
+          {Array.from({ length: 36 }).map((_, i) => {
+            const col = i % 6, row = Math.floor(i / 6);
+            const rr = r() * 4 + 1;
+            return <circle key={i} cx={10 + col * 16} cy={10 + row * 16} r={rr} fill={row % 2 ? c1 : c3} />;
+          })}
+        </svg>
+      );
+    }
+    case 3: {
+      // diagonal gradient stripes
+      return (
+        <svg {...common}>
+          <defs>
+            <pattern id={id} width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+              <rect width="14" height="14" fill={c2} />
+              <rect x="0" width="6" height="14" fill={c3} />
+              <rect x="6" width="2" height="14" fill={c1} />
+            </pattern>
+          </defs>
+          <rect width="100" height="100" fill={`url(#${id})`} />
+        </svg>
+      );
+    }
+    case 4: {
+      // sunset / horizon
+      return (
+        <svg {...common}>
+          <rect width="100" height="50" fill={c2} />
+          <rect y="50" width="100" height="50" fill={c3} />
+          <circle cx="50" cy="50" r="22" fill={c1} />
+          <rect y="72" width="100" height="1.5" fill={c1} opacity="0.7" />
+          <rect y="80" width="100" height="1.5" fill={c1} opacity="0.5" />
+          <rect y="88" width="100" height="1.5" fill={c1} opacity="0.3" />
+        </svg>
+      );
+    }
+    case 5: {
+      // mountain triangles
+      return (
+        <svg {...common}>
+          <rect width="100" height="100" fill={c2} />
+          <polygon points="0,100 30,40 55,100" fill={c3} />
+          <polygon points="35,100 65,25 100,100" fill={c1} />
+          <circle cx="78" cy="22" r="6" fill={c3} />
+        </svg>
+      );
+    }
+    case 6:
+    default: {
+      // waveform bars
+      const bars = Array.from({ length: 14 }, () => r());
+      return (
+        <svg {...common}>
+          <rect width="100" height="100" fill={c2} />
+          {bars.map((b, i) => {
+            const h = 16 + b * 68;
+            return <rect key={i} x={6 + i * 6.4} y={50 - h / 2} width={4} height={h} fill={i % 3 === 0 ? c1 : c3} rx="1" />;
+          })}
+        </svg>
+      );
+    }
+  }
+}
+
+window.Cover = Cover;
+
+
+// === components.jsx ===
+// components.jsx — shared UI primitives
+
+function Slider({ value, onChange, min = 0, max = 100, step = 1, label, unit = "%", hintLeft, hintRight }) {
+  return (
+    <div className="field">
+      <div className="label">
+        <span>{label}</span>
+        <span className="slider-value tnum">{value}{unit}</span>
+      </div>
+      <div className="slider-wrap">
+        <div className="slider-track-wrap">
+          <div className="slider-ticks">
+            {Array.from({ length: 10 }).map((_, i) => <div className="t" key={i} />)}
+          </div>
+          <input
+            type="range"
+            className="slider"
+            value={value}
+            min={min} max={max} step={step}
+            onChange={(e) => onChange(parseInt(e.target.value, 10))}
+          />
+        </div>
+        <div className="slider-foot">
+          <span>{hintLeft}</span>
+          <span>{hintRight}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Seg({ options, value, onChange, accent = false }) {
+  return (
+    <div className={"seg" + (accent ? " accent" : "")}>
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          className={value === opt.value ? "on" : ""}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Select({ value, onChange, options, mono = true, placeholder }) {
+  const [open, setOpen] = React.useState(false);
+  const [focus, setFocus] = React.useState(-1);
+  const rootRef = React.useRef(null);
+  const current = options.find(o => o.value === value);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const onKey = (e) => {
+    if (!open && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault();
+      setOpen(true);
+      setFocus(Math.max(0, options.findIndex(o => o.value === value)));
+      return;
+    }
+    if (!open) return;
+    if (e.key === "Escape") { setOpen(false); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setFocus(f => Math.min(options.length - 1, f + 1)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setFocus(f => Math.max(0, f - 1)); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (focus >= 0) { onChange(options[focus].value); setOpen(false); }
+    }
+  };
+
+  return (
+    <div className={"select-ui" + (open ? " open" : "") + (mono ? " mono" : "")} ref={rootRef} tabIndex={0} onKeyDown={onKey}>
+      <button
+        type="button"
+        className="select-trigger"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="select-val">{current ? current.label : (placeholder || "Select…")}</span>
+        <span className={"select-caret" + (open ? " up" : "")} aria-hidden>
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 4.5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </span>
+      </button>
+      {open && (
+        <div className="select-menu scroll" role="listbox">
+          {options.map((o, i) => (
+            <button
+              type="button"
+              key={o.value}
+              role="option"
+              aria-selected={o.value === value}
+              className={"select-opt" + (o.value === value ? " sel" : "") + (i === focus ? " foc" : "")}
+              onMouseEnter={() => setFocus(i)}
+              onClick={() => { onChange(o.value); setOpen(false); }}
+            >
+              <span>{o.label}</span>
+              {o.value === value && (
+                <span className="select-check" aria-hidden>
+                  <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 6.2l2.5 2.5L9.5 3.7" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chip({ children, on, onClick }) {
+  return (
+    <button className={"chip" + (on ? " on" : "")} onClick={onClick}>
+      {children}
+      {on && <span className="x">×</span>}
+    </button>
+  );
+}
+
+function Waveform({ state = "idle", seed = 1, bars = 48, height = 36 }) {
+  // state: "idle" | "pending" | "active"
+  const values = React.useMemo(() => {
+    const r = rng(seed);
+    return Array.from({ length: bars }, (_, i) => {
+      const base = 0.2 + r() * 0.8;
+      const env = Math.sin((i / bars) * Math.PI) * 0.6 + 0.4;
+      return base * env;
+    });
+  }, [seed, bars]);
+
+  return (
+    <div className={"wave " + state} style={{ height }}>
+      {values.map((v, i) => (
+        <div
+          key={i}
+          className="b"
+          style={{
+            height: `${Math.max(6, v * 100)}%`,
+            animationDelay: state === "pending" ? `${(i % 7) * 120}ms` : undefined
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function rng(seed) {
+  let s = seed || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+function Toasts({ toasts }) {
+  return (
+    <div className="toast-host">
+      {toasts.map(t => (
+        <div key={t.id} className={"toast" + (t.kind === "err" ? " err" : "")}>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+function relTime(iso) {
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+Object.assign(window, { Slider, Seg, Select, Chip, Waveform, Toasts, formatTime, relTime });
+
+
+// === dialog.jsx ===
+// dialog.jsx — themed Dialog primitive + useConfirm hook (promise-based)
+
+function Dialog({ open, title, eyebrow, children, onClose, width = 460, closeOnBackdrop = true, footer }) {
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="dlg-backdrop"
+      onMouseDown={(e) => {
+        if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose();
+      }}
+    >
+      <div className="dlg-panel" style={{ maxWidth: width, width: "100%" }} role="dialog" aria-modal="true">
+        <div className="dlg-head">
+          <div>
+            {eyebrow && <div className="h-eyebrow" style={{ marginBottom: 6 }}>{eyebrow}</div>}
+            {title && <h2 className="dlg-title">{title}</h2>}
+          </div>
+          {onClose && (
+            <button className="dlg-x" onClick={onClose} aria-label="Close">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {children != null && <div className="dlg-body">{children}</div>}
+
+        {footer && <div className="dlg-foot">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Confirm via context ----
+
+const ConfirmCtx = React.createContext(null);
+
+function ConfirmProvider({ children }) {
+  const [state, setState] = React.useState(null); // { opts, resolve }
+
+  const confirm = React.useCallback((opts) => {
+    return new Promise((resolve) => {
+      setState({ opts: normalizeConfirmOpts(opts), resolve });
+    });
+  }, []);
+
+  const close = (result) => {
+    if (!state) return;
+    state.resolve(result);
+    setState(null);
+  };
+
+  const o = state?.opts;
+
+  return (
+    <ConfirmCtx.Provider value={confirm}>
+      {children}
+      <Dialog
+        open={!!state}
+        eyebrow={o?.eyebrow}
+        title={o?.title}
+        onClose={() => close(false)}
+        width={o?.width || 440}
+        footer={
+          <>
+            <button className="btn ghost" onClick={() => close(false)}>
+              {o?.cancelLabel || "Cancel"}
+            </button>
+            <button
+              className={"btn " + (o?.tone === "danger" ? "danger" : "primary")}
+              onClick={() => close(true)}
+              autoFocus
+            >
+              {o?.confirmLabel || "Confirm"}
+            </button>
+          </>
+        }
+      >
+        {o?.body && <div className="dlg-text">{o.body}</div>}
+      </Dialog>
+    </ConfirmCtx.Provider>
+  );
+}
+
+function normalizeConfirmOpts(opts) {
+  if (typeof opts === "string") return { title: opts };
+  return opts || {};
+}
+
+function useConfirm() {
+  const confirm = React.useContext(ConfirmCtx);
+  if (!confirm) {
+    // fall back to native so callers still work outside the provider
+    return (opts) => Promise.resolve(window.confirm(normalizeConfirmOpts(opts).title || "Confirm?"));
+  }
+  return confirm;
+}
+
+Object.assign(window, { Dialog, ConfirmProvider, useConfirm });
+
+
+// === createPanel.jsx ===
+// createPanel.jsx — Advanced mode create form with multi-prompt support
+
+function CreatePanel({ onStartBatch, onSwitchMode, initialValues }) {
+  const [values, setValues] = React.useState(initialValues || defaultAdvancedValues());
+  const set = (patch) => setValues(v => ({ ...v, ...patch }));
+
+  const promptMode = values.promptMode;
+  const isMulti = promptMode === "multi";
+  const validPrompts = values.prompts.filter(p => p.title.trim() || p.style.trim());
+
+  const canSubmit = isMulti
+    ? validPrompts.length > 0
+    : (values.title.trim() && values.style.trim());
+
+  const apiCalls = Math.ceil(values.count / 2);
+  const credits = values.count * 5;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onStartBatch({ ...values });
+  };
+
+  const addPrompt = () => {
+    set({
+      prompts: [
+        ...values.prompts,
+        { id: `p${Date.now()}`, title: "", style: "", lyrics: "" }
+      ]
+    });
+  };
+
+  const removePrompt = (id) => {
+    set({ prompts: values.prompts.filter(p => p.id !== id) });
+  };
+
+  const updatePrompt = (id, patch) => {
+    set({
+      prompts: values.prompts.map(p => p.id === id ? { ...p, ...patch } : p)
+    });
+  };
+
+  const toggleTag = (tag) => {
+    set({
+      inspirationTags: values.inspirationTags.includes(tag)
+        ? values.inspirationTags.filter(t => t !== tag)
+        : [...values.inspirationTags, tag]
+    });
+  };
+
+  return (
+    <div className="main scroll">
+      {/* Header */}
+      <div className="section" style={{ paddingBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24 }}>
+          <div>
+            <div className="h-eyebrow" style={{ marginBottom: 10 }}>Session · Advanced Mode</div>
+            <h1 className="h-display">Make a new set of tracks</h1>
+            <p className="hint" style={{ marginTop: 8, maxWidth: 560 }}>
+              Set up your prompts, choose a model, and create as many tracks as you need.
+            </p>
+          </div>
+          <div className="seg">
+            <button onClick={() => onSwitchMode && onSwitchMode("simple")}>Simple</button>
+            <button className="on">Advanced</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Prompt mode toggle */}
+      <div className="section" style={{ paddingTop: 20, paddingBottom: 20 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div className="label" style={{ marginBottom: 6 }}>Prompt Mode</div>
+            <div className="hint" style={{ maxWidth: 420 }}>
+              {isMulti
+                ? "Each prompt gets its share of the total count, distributed evenly."
+                : "All tracks generated from a single title / style / lyrics."}
+            </div>
+          </div>
+          <Seg
+            options={[
+              { value: "single", label: "Single Prompt" },
+              { value: "multi", label: "Multi-Prompt" },
+            ]}
+            value={promptMode}
+            onChange={(v) => set({ promptMode: v })}
+          />
+        </div>
+      </div>
+
+      {/* Prompt body */}
+      {!isMulti && <SinglePromptFields values={values} set={set} />}
+      {isMulti && (
+        <MultiPromptFields
+          prompts={values.prompts}
+          onAdd={addPrompt}
+          onRemove={removePrompt}
+          onUpdate={updatePrompt}
+          count={values.count}
+          instrumental={values.vocalType === "instrumental"}
+        />
+      )}
+
+      {/* Constraints */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Generation Constraints</h2>
+          <span className="muted">OPTIONAL · DEFAULTS TUNED FOR BALANCE</span>
+        </div>
+
+        <div className="field-row" style={{ marginBottom: 28 }}>
+          <Slider
+            label="Style Influence"
+            value={values.styleInfluence}
+            onChange={(v) => set({ styleInfluence: v })}
+            hintLeft="Loose"
+            hintRight="Strict"
+          />
+          <Slider
+            label="Weirdness"
+            value={values.weirdness}
+            onChange={(v) => set({ weirdness: v })}
+            hintLeft="Conventional"
+            hintRight="Experimental"
+          />
+        </div>
+
+        <div className="field-row" style={{ marginBottom: 24 }}>
+          <div className="field">
+            <div className="label"><span>Vocal Type</span></div>
+            <Seg
+              options={[
+                { value: "vocal", label: "With Vocals" },
+                { value: "instrumental", label: "Instrumental" },
+              ]}
+              value={values.vocalType}
+              onChange={(v) => set({ vocalType: v })}
+            />
+          </div>
+          <div className="field">
+            <div className="label"><span>Vocal Gender</span></div>
+            <Seg
+              options={[
+                { value: "f", label: "Female" },
+                { value: "m", label: "Male" },
+              ]}
+              value={values.vocalGender}
+              onChange={(v) => set({ vocalGender: v })}
+            />
+            {values.vocalType === "instrumental" && (
+              <div className="hint" style={{ marginTop: 2 }}>Ignored for instrumental tracks.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="field">
+          <div className="label">
+            <span>Negative Tags</span>
+            <span className="count">{values.negativeTags.length}/200</span>
+          </div>
+          <input
+            type="text"
+            className="input mono"
+            placeholder="e.g. no screaming, no autotune, no dubstep drop"
+            value={values.negativeTags}
+            maxLength={200}
+            onChange={(e) => set({ negativeTags: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Inspiration */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Inspiration Tags</h2>
+          <span className="muted">{values.inspirationTags.length} SELECTED</span>
+        </div>
+        <div className="tag-wall">
+          {window.INSPIRATION_TAGS.map(t => (
+            <Chip key={t} on={values.inspirationTags.includes(t)} onClick={() => toggleTag(t)}>
+              {t}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Runtime */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Run Settings</h2>
+          <span className="muted">{apiCalls} REQUEST{apiCalls > 1 ? "S" : ""} · {values.count} TRACK{values.count > 1 ? "S" : ""}</span>
+        </div>
+
+        <div className="field-row" style={{ marginBottom: 20 }}>
+          <div className="field">
+            <div className="label"><span>Track Count</span><span className="count tnum">{values.count}</span></div>
+            <div className="slider-wrap">
+              <input
+                type="range" className="slider"
+                min="1" max="100" step="1"
+                value={values.count}
+                onChange={(e) => set({ count: parseInt(e.target.value, 10) })}
+              />
+              <div className="slider-foot">
+                <span>1</span>
+                <span>25</span>
+                <span>50</span>
+                <span>75</span>
+                <span>100</span>
+              </div>
+            </div>
+          </div>
+          <div className="field">
+            <div className="label"><span>Model</span></div>
+            <Select
+              value={values.model}
+              onChange={(v) => set({ model: v })}
+              options={window.MODEL_OPTIONS}
+            />
+          </div>
+        </div>
+
+        {(values.count > 10 || values.count > 50) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+            {values.count > 10 && (
+              <div className="warn-line">
+                <span className="warn-dot" /> Large track counts may take a while to finish.
+              </div>
+            )}
+            {values.count > 50 && (
+              <div className="warn-line err">
+                <span className="warn-dot" /> Some tracks may fail during large runs.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+          <div className="hint" style={{ maxWidth: 420 }}>
+            Requests: <span className="mono tnum" style={{ color: "var(--fg-1)" }}>{apiCalls}</span>
+            <span style={{ margin: "0 10px", color: "var(--fg-3)" }}>·</span>
+            Est. credits: <span className="mono tnum" style={{ color: "var(--accent)" }}>{credits}</span>
+            <span style={{ margin: "0 10px", color: "var(--fg-3)" }}>·</span>
+            <span style={{ color: "var(--fg-3)" }}>
+              {values.count % 2 === 1 ? "last request makes 1" : "2 tracks per request"}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn ghost">Save Preset</button>
+            <button className="btn primary" onClick={submit} disabled={!canSubmit}>
+              {`Create · ${values.count} tracks · ${credits} credits`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SinglePromptFields({ values, set }) {
+  const instrumental = values.vocalType === "instrumental";
+  return (
+    <div className="section">
+      <div className="section-head">
+        <h2>Prompt</h2>
+        <span className="muted">SINGLE</span>
+      </div>
+
+      <div style={{ display: "grid", gap: 18 }}>
+        <div className="field">
+          <div className="label">
+            <span>Title</span>
+            <span className="count">{values.title.length}/100</span>
+          </div>
+          <input
+            type="text" className="input"
+            placeholder="e.g. Lantern Fields at 3AM"
+            value={values.title}
+            maxLength={100}
+            onChange={(e) => set({ title: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <div className="label">
+            <span>Style</span>
+            <span className="count">{values.style.length}/1000</span>
+          </div>
+          <textarea
+            className="textarea"
+            placeholder="lo-fi, late-night drive, pressed tape cassette vibes, warm pads, Rhodes, vinyl crackle, 72 bpm"
+            value={values.style}
+            maxLength={1000}
+            onChange={(e) => set({ style: e.target.value })}
+          />
+        </div>
+
+        <div className="field">
+          <div className="label">
+            <span>Lyrics {instrumental && <span style={{ color: "var(--fg-3)" }}>· disabled (instrumental)</span>}</span>
+            <span className="count">{values.lyrics.length}/5000</span>
+          </div>
+          <textarea
+            className="textarea lyrics"
+            placeholder={instrumental ? "Instrumental — no lyrics." : "[Verse 1]\nSomething about moths around a streetlamp...\n\n[Chorus]\n..."}
+            value={values.lyrics}
+            maxLength={5000}
+            disabled={instrumental}
+            onChange={(e) => set({ lyrics: e.target.value })}
+            style={{ opacity: instrumental ? 0.4 : 1 }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MultiPromptFields({ prompts, onAdd, onRemove, onUpdate, count, instrumental }) {
+  const perPrompt = prompts.length > 0 ? Math.floor(count / prompts.length) : 0;
+  const remainder = prompts.length > 0 ? count % prompts.length : 0;
+  const distribution = prompts.map((_, i) => perPrompt + (i < remainder ? 1 : 0));
+
+  return (
+    <div className="section">
+      <div className="section-head">
+        <h2>Prompts</h2>
+        <span className="muted">
+          {prompts.length} PROMPT{prompts.length !== 1 ? "S" : ""} · DISTRIBUTED [{distribution.join(", ")}]
+        </span>
+      </div>
+
+      <div>
+        {prompts.map((p, i) => (
+          <div className="prompt-row" key={p.id}>
+            <div className="idx mono">
+              #{String(i + 1).padStart(2, "0")}
+              <div style={{ marginTop: 4, color: "var(--accent)" }}>
+                {distribution[i]}×
+              </div>
+            </div>
+            <div>
+              <input
+                type="text" className="input"
+                placeholder={`Title for prompt ${i + 1}`}
+                value={p.title}
+                maxLength={100}
+                onChange={(e) => onUpdate(p.id, { title: e.target.value })}
+              />
+              <div className="prompt-subrow">
+                <textarea
+                  className="textarea"
+                  placeholder="Style..."
+                  value={p.style}
+                  maxLength={1000}
+                  onChange={(e) => onUpdate(p.id, { style: e.target.value })}
+                  style={{ minHeight: 64 }}
+                />
+                <textarea
+                  className="textarea lyrics"
+                  placeholder={instrumental ? "Instrumental" : "Lyrics (optional)"}
+                  value={p.lyrics || ""}
+                  maxLength={5000}
+                  disabled={instrumental}
+                  onChange={(e) => onUpdate(p.id, { lyrics: e.target.value })}
+                  style={{ minHeight: 64, opacity: instrumental ? 0.4 : 1 }}
+                />
+              </div>
+            </div>
+            <button className="del" onClick={() => onRemove(p.id)} title="Remove">×</button>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <button className="btn sm" onClick={onAdd}>+ Add Prompt</button>
+      </div>
+    </div>
+  );
+}
+
+function defaultAdvancedValues() {
+  return {
+    promptMode: "single",
+    title: "Lantern Fields at 3AM",
+    style: "lo-fi, late-night drive, pressed tape cassette vibes, warm pads, Rhodes, vinyl crackle, 72 bpm",
+    lyrics: "[Verse 1]\nMoths around a streetlamp\nSoft rain on the hood\nRadio static, fading\nI'd come back if I could\n\n[Chorus]\nLantern fields at three AM\nEverything is half-asleep\nI am nothing but the quiet\nAnd the promises I keep",
+    prompts: [
+      { id: "p1", title: "Opening Track", style: "ambient, soft drone, no drums", lyrics: "" },
+      { id: "p2", title: "Middle Cut", style: "lo-fi chillhop, 82 bpm, Rhodes", lyrics: "" },
+      { id: "p3", title: "Closing Piece", style: "post-rock, slow crescendo, tremolo guitars", lyrics: "" },
+    ],
+    vocalType: "vocal",
+    vocalGender: "f",
+    negativeTags: "no screaming, no autotune",
+    weirdness: 42,
+    styleInfluence: 65,
+    count: 6,
+    model: "V5_5",
+    inspirationTags: ["lo-fi", "warm pads", "vinyl crackle"],
+  };
+}
+
+window.CreatePanel = CreatePanel;
+window.defaultAdvancedValues = defaultAdvancedValues;
+
+
+// === simplePanel.jsx ===
+// simplePanel.jsx — Simple mode: quick-prompt create, routes through the same batch flow as Advanced
+
+const SIMPLE_EXAMPLES = [
+  "Lo-fi hip-hop for a pre-dawn drive",
+  "Jazz piano for a rainy afternoon cafe",
+  "Intense orchestral score for a boss battle",
+  "Upbeat pop for a summer beach day",
+  "Ambient soundscape for meditation",
+];
+
+const SIMPLE_INSPIRATION = [
+  "Danceable beat", "Ambient trance", "Heartfelt delivery", "Feel-good",
+  "Emotional", "Energetic", "Dreamy", "Calm", "Upbeat", "Warm",
+];
+
+const SIMPLE_MODELS = [
+  { value: "V4_5ALL",  label: "V4.5 ALL · Default" },
+  { value: "V4_5",     label: "V4.5" },
+  { value: "V4_5PLUS", label: "V4.5 PLUS" },
+  { value: "V5",       label: "V5" },
+  { value: "V4",       label: "V4" },
+];
+
+function SimplePanel({ onStartBatch, onSwitchMode }) {
+  const [promptMode, setPromptMode] = React.useState("single");
+  const [description, setDescription] = React.useState("");
+  const [prompts, setPrompts] = React.useState([
+    { id: "sp1", text: "" },
+    { id: "sp2", text: "" },
+  ]);
+  const [vocalType, setVocalType] = React.useState("vocal");
+  const [tags, setTags] = React.useState([]);
+  const [count, setCount] = React.useState(4);
+  const [model, setModel] = React.useState("V4_5ALL");
+
+  const apiCalls = Math.ceil(count / 2);
+  const credits = count * 5;
+  const isMulti = promptMode === "multi";
+
+  const nonEmptyPrompts = prompts.filter(p => p.text.trim());
+  const canSubmit = isMulti
+    ? nonEmptyPrompts.length > 0
+    : description.trim().length > 0;
+
+  const pickRandomExample = () => {
+    const picked = SIMPLE_EXAMPLES[Math.floor(Math.random() * SIMPLE_EXAMPLES.length)];
+    setDescription(picked);
+  };
+
+  const addPrompt = () => {
+    if (prompts.length >= 10) return;
+    setPrompts(ps => [...ps, { id: `sp${Date.now()}`, text: "" }]);
+  };
+  const removePrompt = (id) => {
+    if (prompts.length <= 1) return;
+    setPrompts(ps => ps.filter(p => p.id !== id));
+  };
+  const updatePrompt = (id, text) => {
+    setPrompts(ps => ps.map(p => p.id === id ? { ...p, text } : p));
+  };
+
+  const toggleTag = (t) => {
+    setTags(ts => ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t]);
+  };
+
+  // Normalize Simple form into the shape the shared batch runner expects.
+  const submit = () => {
+    if (!canSubmit) return;
+    const styleSuffix = tags.length ? ". " + tags.join(", ") : "";
+
+    const values = {
+      promptMode,
+      // Single-mode fields
+      title: (description.slice(0, 40) || "Simple Prompt").trim(),
+      style: (description + styleSuffix).trim(),
+      lyrics: "",
+      // Multi-mode fields
+      prompts: nonEmptyPrompts.map((p, i) => ({
+        id: p.id,
+        title: (p.text.slice(0, 40) || `Prompt ${i + 1}`).trim(),
+        style: (p.text + styleSuffix).trim(),
+        lyrics: "",
+      })),
+      // Shared constraints (defaults for any Advanced-only fields)
+      vocalType,
+      vocalGender: "f",
+      negativeTags: "",
+      weirdness: 50,
+      styleInfluence: 50,
+      count,
+      model,
+      inspirationTags: tags,
+      // Provenance flag
+      origin: "simple",
+    };
+    onStartBatch(values);
+  };
+
+  return (
+    <div className="main scroll">
+      {/* Header */}
+      <div className="section" style={{ paddingBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24 }}>
+          <div>
+            <div className="h-eyebrow" style={{ marginBottom: 10 }}>Session · Simple Mode</div>
+            <h1 className="h-display">Make a new set of tracks</h1>
+            <p className="hint" style={{ marginTop: 8, maxWidth: 560 }}>
+              Set up your prompts, choose a model, and create as many tracks as you need.
+            </p>
+          </div>
+          <div className="seg">
+            <button className="on">Simple</button>
+            <button onClick={() => onSwitchMode && onSwitchMode("advanced")}>Advanced</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Prompt mode toggle */}
+      <div className="section" style={{ paddingTop: 20, paddingBottom: 20 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div className="label" style={{ marginBottom: 6 }}>Prompt Mode</div>
+            <div className="hint" style={{ maxWidth: 420 }}>
+              {isMulti
+                ? "Enter multiple prompts — the total track count is split across them."
+                : "Generate every track from a single one-line description."}
+            </div>
+          </div>
+          <Seg
+            options={[
+              { value: "single", label: "Single Prompt" },
+              { value: "multi", label: "Multi-Prompt" },
+            ]}
+            value={promptMode}
+            onChange={setPromptMode}
+          />
+        </div>
+      </div>
+
+      {/* Prompt body */}
+      {!isMulti ? (
+        <div className="section">
+          <div className="section-head">
+            <h2>Prompt</h2>
+            <span className="muted">SINGLE</span>
+          </div>
+          <div className="field">
+            <div className="label">
+              <span>One-line description</span>
+              <span className="count tnum">{description.length}/500</span>
+            </div>
+            <textarea
+              className="textarea"
+              placeholder="e.g. Lo-fi hip-hop for a pre-dawn drive"
+              value={description}
+              maxLength={500}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn sm" onClick={pickRandomExample}>
+                ⚂ Insert random example
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="section">
+          <div className="section-head">
+            <h2>Prompts</h2>
+            <span className="muted">
+              {prompts.length} × {prompts.length > 0 ? Math.floor(count / prompts.length) : 0} each = {count} tracks total
+            </span>
+          </div>
+
+          <div>
+            {prompts.map((p, i) => (
+              <div className="prompt-row" key={p.id}>
+                <div className="idx mono">
+                  #{String(i + 1).padStart(2, "0")}
+                </div>
+                <div>
+                  <textarea
+                    className="textarea"
+                    placeholder={`Prompt ${i + 1}`}
+                    value={p.text}
+                    maxLength={500}
+                    onChange={(e) => updatePrompt(p.id, e.target.value)}
+                    style={{ minHeight: 60 }}
+                  />
+                </div>
+                <button
+                  className="del"
+                  onClick={() => removePrompt(p.id)}
+                  disabled={prompts.length <= 1}
+                  title={prompts.length <= 1 ? "At least one prompt required" : "Remove"}
+                  style={{ opacity: prompts.length <= 1 ? 0.3 : 1 }}
+                >×</button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+            <button className="btn sm" onClick={addPrompt} disabled={prompts.length >= 10}>
+              + Add prompt
+            </button>
+            <span className="hint">Max 10</span>
+          </div>
+        </div>
+      )}
+
+      {/* Generation Constraints */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Generation Constraints</h2>
+        </div>
+        <div className="field">
+          <div className="label"><span>Vocal Type</span></div>
+          <Seg
+            options={[
+              { value: "vocal", label: "Vocal" },
+              { value: "instrumental", label: "Instrumental" },
+            ]}
+            value={vocalType}
+            onChange={setVocalType}
+          />
+        </div>
+      </div>
+
+      {/* Inspiration */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Inspiration Tags</h2>
+          <span className="muted">{tags.length} SELECTED</span>
+        </div>
+        <div className="tag-wall">
+          {SIMPLE_INSPIRATION.map(t => (
+            <Chip key={t} on={tags.includes(t)} onClick={() => toggleTag(t)}>
+              {t}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Run Settings — unified with Advanced */}
+      <div className="section">
+        <div className="section-head">
+          <h2>Run Settings</h2>
+          <span className="muted">{apiCalls} REQUEST{apiCalls > 1 ? "S" : ""} · {count} TRACK{count > 1 ? "S" : ""}</span>
+        </div>
+
+        <div className="field-row" style={{ marginBottom: 20 }}>
+          <div className="field">
+            <div className="label"><span>Track Count</span><span className="count tnum">{count}</span></div>
+            <div className="slider-wrap">
+              <input
+                type="range" className="slider"
+                min="1" max="100" step="1"
+                value={count}
+                onChange={(e) => setCount(parseInt(e.target.value, 10))}
+              />
+              <div className="slider-foot">
+                <span>1</span>
+                <span>25</span>
+                <span>50</span>
+                <span>75</span>
+                <span>100</span>
+              </div>
+            </div>
+          </div>
+          <div className="field">
+            <div className="label"><span>Model</span></div>
+            <Select
+              value={model}
+              onChange={setModel}
+              options={SIMPLE_MODELS}
+            />
+          </div>
+        </div>
+
+        {(count > 10 || count > 50) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+            {count > 10 && (
+              <div className="warn-line">
+                <span className="warn-dot" /> Large track counts may take a while to finish.
+              </div>
+            )}
+            {count > 50 && (
+              <div className="warn-line err">
+                <span className="warn-dot" /> Some tracks may fail during large runs.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+          <div className="hint" style={{ maxWidth: 420 }}>
+            Requests: <span className="mono tnum" style={{ color: "var(--fg-1)" }}>{apiCalls}</span>
+            <span style={{ margin: "0 10px", color: "var(--fg-3)" }}>·</span>
+            Est. credits: <span className="mono tnum" style={{ color: "var(--accent)" }}>{credits}</span>
+            <span style={{ margin: "0 10px", color: "var(--fg-3)" }}>·</span>
+            <span style={{ color: "var(--fg-3)" }}>
+              {count % 2 === 1 ? "last request makes 1" : "2 tracks per request"}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn ghost">Save Preset</button>
+            <button className="btn primary" onClick={submit} disabled={!canSubmit}>
+              {`Create · ${count} tracks · ${credits} credits`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.SimplePanel = SimplePanel;
+
+
+// === generation.jsx ===
+// generation.jsx — batch generation progress view
+
+function GenerationView({ jobs, allTracks, totalCount, onCancel, onDone }) {
+  const confirm = useConfirm();
+  const doCancel = async () => {
+    const ok = await confirm({
+      eyebrow: "Run",
+      title: "Stop this run?",
+      body: "Tracks still being made will be marked as failed. Tracks already saved to your library are kept.",
+      confirmLabel: "Stop run",
+      cancelLabel: "Keep going",
+      tone: "danger",
+    });
+    if (ok) onCancel();
+  };
+  const completed = jobs.filter(j => j.status === "SUCCESS").length;
+  const failed = jobs.filter(j => j.status === "FAILED").length;
+  const running = jobs.length - completed - failed;
+  const savedCount = allTracks.length;
+  const pct = totalCount > 0 ? Math.min(100, Math.round((savedCount / totalCount) * 100)) : 0;
+  const isComplete = running === 0;
+
+  return (
+    <div className="main scroll">
+      <div className="section no-underline" style={{ paddingBottom: 20 }}>
+        <div className="h-eyebrow" style={{ marginBottom: 10 }}>
+          {isComplete ? "Run · Complete" : "Run · In Progress"}
+        </div>
+        <h1 className="h-display">
+          {isComplete
+            ? `Made ${savedCount} of ${totalCount} tracks`
+            : `Creating ${totalCount} tracks across ${jobs.length} requests`}
+        </h1>
+      </div>
+
+      <div className="section" style={{ paddingTop: 0, paddingBottom: 20 }}>
+        <div className="batch-bar">
+          <div className="mono uc" style={{ fontSize: 10, color: "var(--fg-2)", letterSpacing: "0.14em" }}>
+            {isComplete ? "DONE" : "CREATING"}
+          </div>
+          <div className="meter">
+            <div className="fill" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="num tnum">
+            <span style={{ color: "var(--accent)" }}>{savedCount}</span>
+            <span style={{ color: "var(--fg-3)" }}> / </span>
+            <span>{totalCount}</span>
+          </div>
+          <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)", minWidth: 40, textAlign: "right" }}>
+            {pct}%
+          </div>
+        </div>
+
+        <div className="stat-row" style={{ marginTop: 0 }}>
+          <div className="stat">
+            <div className="k">Requests Total</div>
+            <div className="v tnum">{jobs.length}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Running</div>
+            <div className="v tnum" style={{ color: running > 0 ? "var(--warn)" : "var(--fg-3)" }}>{running}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Succeeded</div>
+            <div className="v tnum" style={{ color: "var(--accent)" }}>{completed}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Failed</div>
+            <div className="v tnum" style={{ color: failed > 0 ? "var(--err)" : "var(--fg-3)" }}>{failed}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="section-head">
+          <h2>Requests</h2>
+          <span className="muted">UPDATES EVERY 3S</span>
+        </div>
+
+        <div className="jobs">
+          {jobs.map((j, i) => (
+            <JobRow key={j.taskId} job={j} index={i} />
+          ))}
+        </div>
+      </div>
+
+      <div className="section" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        {!isComplete && <button className="btn" onClick={doCancel}>Stop Run</button>}
+        {isComplete && <button className="btn primary" onClick={onDone}>View in Library →</button>}
+      </div>
+    </div>
+  );
+}
+
+function JobRow({ job, index }) {
+  const status = job.status;
+  const isRunning = status === "PENDING" || status === "TEXT" || status === "FIRST";
+  const klass = status === "SUCCESS" ? "ok" : status === "FAILED" ? "err" : isRunning ? "running" : "";
+
+  const stageMap = {
+    PENDING: "WAITING",
+    TEXT: "WRITING LYRICS",
+    FIRST: "CREATING AUDIO",
+    SUCCESS: "SAVED",
+    FAILED: "FAILED",
+  };
+
+  const elapsed = Math.floor((Date.now() - job.startedAt) / 1000);
+
+  return (
+    <div className={"job " + klass}>
+      <div className="sig" />
+      <div className="id mono">
+        <b>#{String(index + 1).padStart(2, "0")}</b>
+        <span style={{ margin: "0 8px", color: "var(--fg-3)" }}>·</span>
+        {job.taskId}
+        <span style={{ margin: "0 8px", color: "var(--fg-3)" }}>·</span>
+        <span style={{ color: "var(--fg-3)" }}>{job.targetCount} track{job.targetCount > 1 ? "s" : ""}</span>
+      </div>
+      <div className="stage">{stageMap[status] || status}</div>
+      <div className="timer tnum">
+        {status === "SUCCESS" ? "✓ " + elapsed + "s" : status === "FAILED" ? "✕ " + elapsed + "s" : elapsed + "s"}
+      </div>
+    </div>
+  );
+}
+
+window.GenerationView = GenerationView;
+
+
+// === library.jsx ===
+// library.jsx — saved tracks list with search, filters, favorites
+
+function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
+  const confirm = useConfirm();
+  const [q, setQ] = React.useState("");
+  const [mode, setMode] = React.useState("all");
+  const [favOnly, setFavOnly] = React.useState(false);
+  const [orderBy, setOrderBy] = React.useState("newest");
+
+  const filtered = React.useMemo(() => {
+    let list = [...tracks];
+    if (q.trim()) {
+      const qq = q.toLowerCase();
+      list = list.filter(t =>
+        t.title.toLowerCase().includes(qq) ||
+        t.tags.toLowerCase().includes(qq) ||
+        t.prompt.toLowerCase().includes(qq)
+      );
+    }
+    if (mode !== "all") list = list.filter(t => t.mode === mode);
+    if (favOnly) list = list.filter(t => t.isFavorite);
+    list.sort((a, b) => {
+      const da = new Date(a.createdAt).getTime();
+      const db = new Date(b.createdAt).getTime();
+      return orderBy === "oldest" ? da - db : db - da;
+    });
+    return list;
+  }, [tracks, q, mode, favOnly, orderBy]);
+
+  const totalDur = filtered.reduce((s, t) => s + t.duration, 0);
+  const favCount = tracks.filter(t => t.isFavorite).length;
+
+  return (
+    <div className="main scroll">
+      <div className="section no-underline" style={{ paddingBottom: 16 }}>
+        <div className="h-eyebrow" style={{ marginBottom: 10 }}>Library</div>
+        <h1 className="h-display">Your saved tracks</h1>
+      </div>
+
+      <div className="section no-underline" style={{ paddingTop: 0, paddingBottom: 20 }}>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="k">Total Tracks</div>
+            <div className="v tnum">{tracks.length}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Favorites</div>
+            <div className="v tnum">{favCount}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Total Runtime</div>
+            <div className="v tnum">{formatHMS(totalDur)}</div>
+          </div>
+          <div className="stat">
+            <div className="k">Showing</div>
+            <div className="v tnum">{filtered.length}<span className="unit">/ {tracks.length}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div className="lib-toolbar">
+        <div className="search">
+          <span className="ic" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4"/><path d="M9 9l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+          </span>
+          <input
+            placeholder="title · tags · prompt"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <Seg
+          options={[
+            { value: "all", label: "All" },
+            { value: "advanced", label: "Advanced" },
+            { value: "simple", label: "Simple" },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
+        <button
+          className={"btn sm" + (favOnly ? " primary" : "")}
+          onClick={() => setFavOnly(v => !v)}
+        >
+          ★ Favorites Only
+        </button>
+        <div style={{ flex: 1 }} />
+        <Seg
+          options={[
+            { value: "newest", label: "Newest" },
+            { value: "oldest", label: "Oldest" },
+          ]}
+          value={orderBy}
+          onChange={setOrderBy}
+        />
+      </div>
+
+      <div className="track-header">
+        <span>#</span>
+        <span></span>
+        <span>Title · Tags</span>
+        <span>Mode / Prompt</span>
+        <span>Model</span>
+        <span style={{ textAlign: "right" }}>Duration</span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <div className="track-list">
+        {filtered.map((t, i) => (
+          <div
+            key={t.id}
+            className={"track" + (t.id === currentTrackId ? " playing" : "")}
+            onClick={() => onPlay(t)}
+          >
+            <div className="num tnum">{String(i + 1).padStart(2, "0")}</div>
+            <div className="cover"><Cover track={t} size={44} /></div>
+            <div className="title-block">
+              <div className="title">{t.title}{t.id === currentTrackId && <span style={{ color: "var(--accent)", marginLeft: 8, fontSize: 10 }}>▶ NOW</span>}</div>
+              <div className="sub">{t.tags}</div>
+            </div>
+            <div>
+              <div className="mode-pill" style={{ display: "inline-block" }}>
+                {t.mode} · {t.promptMode}
+              </div>
+              {t.instrumental && (
+                <div className="mono" style={{ fontSize: 9, color: "var(--fg-3)", marginTop: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  instrumental
+                </div>
+              )}
+            </div>
+            <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)", letterSpacing: "0.04em" }}>{t.model}</div>
+            <div className="dur tnum">{formatTime(t.duration)}</div>
+            <button
+              className={"fav" + (t.isFavorite ? " on" : "")}
+              onClick={(e) => { e.stopPropagation(); onToggleFav(t.id); }}
+              title={t.isFavorite ? "Unfavorite" : "Favorite"}
+            >
+              {t.isFavorite ? "★" : "☆"}
+            </button>
+            <button
+              className="menu"
+              onClick={async (e) => {
+                e.stopPropagation();
+                const ok = await confirm({
+                  eyebrow: "Library",
+                  title: `Delete "${t.title}"?`,
+                  body: "This removes the track from your library. The generated audio cannot be recovered.",
+                  confirmLabel: "Delete track",
+                  tone: "danger",
+                });
+                if (ok) onDelete(t.id);
+              }}
+              title="Delete"
+            >
+              ⋯
+            </button>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="empty">
+            No tracks match these filters.<br/>
+            Try clearing search or switching to ALL.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatHMS(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${sec}s`;
+}
+
+window.Library = Library;
+
+
+// === shell.jsx ===
+// shell.jsx — top bar, nav, aside, player, tweaks
+
+function TopBar({ view, batchJobs, batchTotal, savedCount }) {
+  const running = batchJobs.filter(j => j.status !== "SUCCESS" && j.status !== "FAILED").length;
+  const isGenerating = running > 0;
+
+  return (
+    <div className="topbar">
+      <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        <div className="brand">
+          <div className="brand-mark" />
+          <span>SUNO<span style={{ color: "var(--fg-3)", margin: "0 4px" }}>/</span>STUDIO</span>
+        </div>
+        <div className="mono" style={{ fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Workspace · <span style={{ color: "var(--fg-1)" }}>Untitled Session</span>
+        </div>
+      </div>
+
+      <div className="top-status">
+        {isGenerating ? (
+          <span><span className="dot" />CREATING · {savedCount}/{batchTotal}</span>
+        ) : (
+          <span><span className="dot" style={{ background: "var(--fg-2)", boxShadow: "none" }} />READY</span>
+        )}
+        <span>SUNO<span className="dot" style={{ marginLeft: 8, marginRight: 6 }} />CONNECTED</span>
+        <span>QUOTA <span className="tnum" style={{ color: "var(--fg-1)", margin: "0 4px" }}>847</span> / 1000</span>
+      </div>
+    </div>
+  );
+}
+
+function Nav({ view, onNav, trackCount, favCount, runningCount }) {
+  const item = (key, label, badge) => (
+    <button className={"nav-item" + (view === key ? " active" : "")} onClick={() => onNav(key)}>
+      <span>{label}</span>
+      {badge != null && <span className="badge tnum">{badge}</span>}
+    </button>
+  );
+
+  return (
+    <nav className="nav">
+      <div className="nav-sec">Workspace</div>
+      {item("create", "Create", null)}
+      {item("generating", "Generating", runningCount || null)}
+      {item("library", "Library", trackCount)}
+
+      <div className="nav-sec">Collections</div>
+      <button className="nav-item"><span>Favorites</span><span className="badge tnum">{favCount}</span></button>
+      <button className="nav-item"><span>Recent</span><span className="badge">24h</span></button>
+      <button className="nav-item"><span>Instrumentals</span></button>
+
+      <div className="nav-sec">Presets</div>
+      <button className="nav-item"><span>Lo-fi Study</span></button>
+      <button className="nav-item"><span>Dream-pop</span></button>
+      <button className="nav-item"><span>Ambient Drone</span></button>
+      <button className="nav-item"><span>+ New Preset</span></button>
+
+      <div className="nav-foot">
+        v0.4.2 · Suno V5.5<br/>
+        Next.js 14 · SQLite<br/>
+        <span style={{ color: "var(--accent)" }}>●</span> sunoapi.org
+      </div>
+    </nav>
+  );
+}
+
+function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId, recentTracks }) {
+  const showBatch = view === "generating" && (batchTracks.length > 0 || batchJobs.some(j => j.status !== "SUCCESS" && j.status !== "FAILED"));
+  const pendingJobs = batchJobs.filter(j => j.status !== "SUCCESS" && j.status !== "FAILED");
+
+  if (showBatch) {
+    return (
+      <div className="aside">
+        <div className="aside-head">
+          <div>
+            <div className="h-eyebrow" style={{ marginBottom: 6 }}>Live Results</div>
+            <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
+              {batchTracks.length} ready · {pendingJobs.length} creating
+            </div>
+          </div>
+          <div className="mono uc" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.14em" }}>
+            {completed ? "DONE" : "LIVE"}
+          </div>
+        </div>
+        <div className="aside-body scroll">
+          {pendingJobs.map(j => (
+            <div key={j.taskId} className="result-card" style={{ borderColor: "var(--line)" }}>
+              <div className="rc-cover" style={{ background: "var(--bg-3)", display: "grid", placeItems: "center" }}>
+                <Waveform state="pending" seed={hash(j.taskId)} bars={10} height={28} />
+              </div>
+              <div className="rc-body">
+                <div className="rc-title" style={{ color: "var(--fg-2)" }}>Creating...</div>
+                <div className="rc-sub">{j.taskId} · {j.statusMessage}</div>
+              </div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.08em" }}>
+                {j.status}
+              </div>
+            </div>
+          ))}
+          {batchTracks.map(t => (
+            <div
+              key={t.id}
+              className={"result-card" + (t.fresh ? " fresh" : "")}
+              onClick={() => onPlay(t)}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="rc-cover"><Cover track={t} size={44} /></div>
+              <div className="rc-body">
+                <div className="rc-title">{t.title}</div>
+                <div className="rc-sub">{t.model} · {formatTime(t.duration)} · saved</div>
+              </div>
+              <div className="rc-play">▶</div>
+            </div>
+          ))}
+          {batchTracks.length === 0 && pendingJobs.length === 0 && (
+            <div className="empty">No jobs running.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="aside">
+      <div className="aside-head">
+        <div>
+          <div className="h-eyebrow" style={{ marginBottom: 6 }}>Recent</div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
+            Last 24 hours
+          </div>
+        </div>
+        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          See all →
+        </button>
+      </div>
+      <div className="aside-body scroll">
+        {recentTracks.map(t => (
+          <div
+            key={t.id}
+            className="result-card"
+            onClick={() => onPlay(t)}
+            style={{ cursor: "pointer", borderColor: t.id === currentTrackId ? "var(--accent-line)" : "var(--line)" }}
+          >
+            <div className="rc-cover"><Cover track={t} size={44} /></div>
+            <div className="rc-body">
+              <div className="rc-title">{t.title}</div>
+              <div className="rc-sub">{t.model} · {formatTime(t.duration)} · {relTime(t.createdAt)}</div>
+            </div>
+            <div className="rc-play">▶</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function hash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function Player({ track, isPlaying, onPlayPause, playhead, onSeek }) {
+  if (!track) {
+    return <div className="player"><div /><div className="empty">No track loaded</div><div /></div>;
+  }
+  const pct = (playhead / track.duration) * 100;
+  const onBarClick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    onSeek(Math.max(0, Math.min(track.duration, x * track.duration)));
+  };
+
+  return (
+    <div className="player">
+      <div className="player-track-info">
+        <div className="cover" style={{ width: 44, height: 44, borderRadius: 2, overflow: "hidden" }}>
+          <Cover track={track} size={44} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="title">{track.title}</div>
+          <div className="sub">{track.tags.split(",")[0]} · {track.model}</div>
+        </div>
+      </div>
+
+      <div className="player-center">
+        <div className="player-controls">
+          <button title="Shuffle" style={{ color: "var(--fg-3)", fontSize: 14 }}>⇄</button>
+          <button title="Previous" style={{ fontSize: 16 }}>⏮</button>
+          <button className="play" onClick={onPlayPause} title={isPlaying ? "Pause" : "Play"}>
+            <span style={{ fontSize: 11 }}>{isPlaying ? "❚❚" : "▶"}</span>
+          </button>
+          <button title="Next" style={{ fontSize: 16 }}>⏭</button>
+          <button title="Repeat" style={{ color: "var(--fg-3)", fontSize: 14 }}>↻</button>
+        </div>
+        <div className="player-bar-wrap">
+          <span className="tnum">{formatTime(playhead)}</span>
+          <div className="player-bar" onClick={onBarClick} style={{ cursor: "pointer" }}>
+            <div className="fill" style={{ width: `${pct}%` }} />
+            <div className="head" style={{ left: `${pct}%` }} />
+          </div>
+          <span className="tnum" style={{ color: "var(--fg-3)" }}>{formatTime(track.duration)}</span>
+        </div>
+      </div>
+
+      <div className="player-right">
+        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Lyrics</button>
+        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Stems</button>
+        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>↓ WAV</button>
+        <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>VOL</div>
+        <div style={{ width: 72, height: 3, background: "var(--bg-3)", position: "relative" }}>
+          <div style={{ position: "absolute", inset: "0 30% 0 0", background: "var(--fg-2)" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Tweaks({ open, onClose, accent, setAccent, fontPair, setFontPair }) {
+  const swatches = [
+    { key: "lime",    color: "oklch(0.88 0.22 130)" },
+    { key: "amber",   color: "oklch(0.83 0.18 70)" },
+    { key: "cyan",    color: "oklch(0.85 0.16 210)" },
+    { key: "magenta", color: "oklch(0.78 0.25 340)" },
+    { key: "coral",   color: "oklch(0.78 0.20 30)" },
+  ];
+
+  const persist = (patch) => {
+    window.parent.postMessage({ type: "__edit_mode_set_keys", edits: patch }, "*");
+  };
+
+  return (
+    <div className={"tweaks" + (open ? " on" : "")}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3>Tweaks</h3>
+        <button onClick={onClose} style={{ color: "var(--fg-3)", fontSize: 14 }}>×</button>
+      </div>
+      <div>
+        <div className="label" style={{ marginBottom: 8 }}><span>Accent</span></div>
+        <div className="swatches">
+          {swatches.map(s => (
+            <button
+              key={s.key}
+              className={"swatch" + (accent === s.key ? " on" : "")}
+              style={{ background: s.color }}
+              onClick={() => { setAccent(s.key); persist({ accent: s.key }); }}
+              title={s.key}
+            />
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="label" style={{ marginBottom: 8 }}><span>Font Pairing</span></div>
+        <Select
+          value={fontPair}
+          onChange={(v) => { setFontPair(v); persist({ fontPair: v }); }}
+          options={[
+            { value: "mono-sans", label: "Inter Tight + JetBrains Mono" },
+            { value: "serif-mono", label: "Fraunces + JetBrains Mono" },
+            { value: "grotesk-mono", label: "Space Grotesk + IBM Plex Mono" },
+            { value: "neue-mono", label: "Inter Tight + IBM Plex Mono" },
+          ]}
+        />
+      </div>
+      <div className="hint" style={{ marginTop: 4 }}>
+        Changes persist on reload.
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { TopBar, Nav, Aside, Player, Tweaks });
+
+
+// === app.jsx ===
+// app.jsx — main shell, routing between views, state
+
+const { useState, useEffect, useRef, useMemo } = React;
+
+// Briefly show scrollbars while any element is actively scrolling.
+(function attachScrollIndicator() {
+  if (window.__scrollIndicator) return;
+  window.__scrollIndicator = true;
+  const timers = new WeakMap();
+  document.addEventListener("scroll", (e) => {
+    const el = e.target;
+    if (!el || !el.classList) return;
+    el.classList.add("is-scrolling");
+    const prev = timers.get(el);
+    if (prev) clearTimeout(prev);
+    timers.set(el, setTimeout(() => el.classList.remove("is-scrolling"), 900));
+  }, true);
+})();
+
+function App() {
+  // Core state
+  const [view, setView] = useState("create"); // create | generating | library
+  const [createMode, setCreateMode] = useState("simple"); // advanced | simple
+  const [tracks, setTracks] = useState(window.MOCK_TRACKS);
+  const [currentTrack, setCurrentTrack] = useState(window.MOCK_TRACKS[0]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+
+  // Batch state
+  const [batchJobs, setBatchJobs] = useState([]);
+  const [batchTotal, setBatchTotal] = useState(0);
+  const [batchTracks, setBatchTracks] = useState([]); // newly-rendered tracks
+  const [toasts, setToasts] = useState([]);
+
+  // Tweaks
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  const [accent, setAccent] = useState("lime");
+  const [fontPair, setFontPair] = useState("mono-sans");
+
+  // Fake playhead while playing
+  useEffect(() => {
+    if (!isPlaying || !currentTrack) return;
+    const id = setInterval(() => {
+      setPlayhead(p => {
+        if (p >= currentTrack.duration) return 0;
+        return p + 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isPlaying, currentTrack]);
+
+  // Apply tweaks
+  useEffect(() => {
+    const root = document.documentElement;
+    const accents = {
+      lime:    { a: "oklch(0.88 0.22 130)", s: "oklch(0.88 0.22 130 / 0.14)", l: "oklch(0.88 0.22 130 / 0.45)" },
+      amber:   { a: "oklch(0.83 0.18 70)",  s: "oklch(0.83 0.18 70 / 0.14)",  l: "oklch(0.83 0.18 70 / 0.45)" },
+      cyan:    { a: "oklch(0.85 0.16 210)", s: "oklch(0.85 0.16 210 / 0.14)", l: "oklch(0.85 0.16 210 / 0.45)" },
+      magenta: { a: "oklch(0.78 0.25 340)", s: "oklch(0.78 0.25 340 / 0.14)", l: "oklch(0.78 0.25 340 / 0.45)" },
+      coral:   { a: "oklch(0.78 0.20 30)",  s: "oklch(0.78 0.20 30 / 0.14)",  l: "oklch(0.78 0.20 30 / 0.45)" },
+    };
+    const { a, s, l } = accents[accent] || accents.lime;
+    root.style.setProperty("--accent", a);
+    root.style.setProperty("--accent-soft", s);
+    root.style.setProperty("--accent-line", l);
+
+    const fonts = {
+      "mono-sans": { sans: '"Inter Tight", system-ui, sans-serif', mono: '"JetBrains Mono", ui-monospace, monospace' },
+      "serif-mono": { sans: '"Fraunces", Georgia, serif', mono: '"JetBrains Mono", ui-monospace, monospace' },
+      "grotesk-mono": { sans: '"Space Grotesk", system-ui, sans-serif', mono: '"IBM Plex Mono", ui-monospace, monospace' },
+      "neue-mono": { sans: '"Inter Tight", system-ui, sans-serif', mono: '"IBM Plex Mono", ui-monospace, monospace' },
+    };
+    const f = fonts[fontPair] || fonts["mono-sans"];
+    root.style.setProperty("--sans", f.sans);
+    root.style.setProperty("--mono", f.mono);
+  }, [accent, fontPair]);
+
+  // Edit mode protocol
+  useEffect(() => {
+    const handler = (e) => {
+      if (!e.data) return;
+      if (e.data.type === "__activate_edit_mode") setTweaksOpen(true);
+      if (e.data.type === "__deactivate_edit_mode") setTweaksOpen(false);
+    };
+    window.addEventListener("message", handler);
+    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  const pushToast = (msg, kind = "ok") => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, msg, kind }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3200);
+  };
+
+  // Batch simulation — mirrors useBatchGenerate polling
+  const batchTimersRef = useRef([]);
+  const clearBatchTimers = () => {
+    batchTimersRef.current.forEach(t => clearTimeout(t));
+    batchTimersRef.current = [];
+  };
+
+  const startBatch = (formValues) => {
+    clearBatchTimers();
+
+    const apiCalls = Math.ceil(formValues.count / 2);
+    const jobs = [];
+    for (let i = 0; i < apiCalls; i++) {
+      const isLast = i === apiCalls - 1;
+      const targetCount = (isLast && formValues.count % 2 === 1) ? 1 : 2;
+      jobs.push({
+        taskId: "tk_" + Math.random().toString(36).slice(2, 8),
+        targetCount,
+        status: "PENDING",
+        statusMessage: "Queued",
+        tracks: [],
+        savedTracks: [],
+        error: null,
+        promptIndex: i,
+        startedAt: Date.now(),
+      });
+    }
+
+    setBatchJobs(jobs);
+    setBatchTotal(formValues.count);
+    setBatchTracks([]);
+    setView("generating");
+
+    // Simulate progression for each job
+    jobs.forEach((job, idx) => {
+      const baseDelay = 600 + Math.random() * 1200;
+      const textT = setTimeout(() => {
+        setBatchJobs(js => js.map(j => j.taskId === job.taskId ? { ...j, status: "TEXT", statusMessage: "Writing lyrics" } : j));
+      }, baseDelay + 1000);
+      const firstT = setTimeout(() => {
+        setBatchJobs(js => js.map(j => j.taskId === job.taskId ? { ...j, status: "FIRST", statusMessage: "Creating audio" } : j));
+      }, baseDelay + 3000);
+      const successT = setTimeout(() => {
+        const failChance = Math.random() < 0.06 && idx > 0;
+        if (failChance) {
+          setBatchJobs(js => js.map(j => j.taskId === job.taskId ? { ...j, status: "FAILED", statusMessage: "Create failed" } : j));
+          pushToast(`Request ${job.taskId.slice(-4)} failed — will retry on next run`, "err");
+          return;
+        }
+        const newTracks = generateMockTracks(formValues, job.targetCount, job.taskId, idx);
+        setBatchJobs(js => js.map(j => j.taskId === job.taskId ? { ...j, status: "SUCCESS", statusMessage: "Saved", savedTracks: newTracks } : j));
+        setBatchTracks(prev => {
+          const existing = new Set(prev.map(t => t.id));
+          return [...prev, ...newTracks.filter(t => !existing.has(t.id))];
+        });
+        setTracks(prev => [...newTracks, ...prev]);
+        newTracks.forEach(t => pushToast(`"${t.title}" saved to library`));
+      }, baseDelay + 5500 + idx * 1200);
+      batchTimersRef.current.push(textT, firstT, successT);
+    });
+  };
+
+  const cancelBatch = () => {
+    clearBatchTimers();
+    setBatchJobs(jobs => jobs.map(j => j.status === "SUCCESS" || j.status === "FAILED" ? j : { ...j, status: "FAILED", statusMessage: "Canceled" }));
+    pushToast("Run stopped", "err");
+  };
+
+  useEffect(() => () => clearBatchTimers(), []);
+
+  const playTrack = (t) => {
+    setCurrentTrack(t);
+    setPlayhead(0);
+    setIsPlaying(true);
+  };
+
+  const toggleFav = (id) => {
+    setTracks(ts => ts.map(t => t.id === id ? { ...t, isFavorite: !t.isFavorite } : t));
+  };
+
+  const deleteTrack = (id) => {
+    setTracks(ts => ts.filter(t => t.id !== id));
+    pushToast("Track removed");
+  };
+
+  const completedBatch = batchJobs.length > 0 && batchJobs.every(j => j.status === "SUCCESS" || j.status === "FAILED");
+
+  return (
+    <div className="app">
+      <TopBar view={view} batchJobs={batchJobs} batchTotal={batchTotal} savedCount={batchTracks.length} />
+
+      <Nav
+        view={view}
+        onNav={setView}
+        trackCount={tracks.length}
+        favCount={tracks.filter(t => t.isFavorite).length}
+        runningCount={batchJobs.filter(j => j.status !== "SUCCESS" && j.status !== "FAILED").length}
+      />
+
+      {view === "create" && createMode === "advanced" && (
+        <CreatePanel onStartBatch={startBatch} onSwitchMode={setCreateMode} />
+      )}
+      {view === "create" && createMode === "simple" && (
+        <SimplePanel onStartBatch={startBatch} onSwitchMode={setCreateMode} />
+      )}
+      {view === "generating" && (
+        <GenerationView
+          jobs={batchJobs}
+          allTracks={batchTracks}
+          totalCount={batchTotal}
+          onCancel={cancelBatch}
+          onDone={() => setView("library")}
+        />
+      )}
+      {view === "library" && (
+        <Library
+          tracks={tracks}
+          currentTrackId={currentTrack?.id}
+          onPlay={playTrack}
+          onToggleFav={toggleFav}
+          onDelete={deleteTrack}
+        />
+      )}
+
+      <Aside
+        view={view}
+        batchTracks={batchTracks}
+        batchJobs={batchJobs}
+        completed={completedBatch}
+        onPlay={playTrack}
+        currentTrackId={currentTrack?.id}
+        recentTracks={tracks.slice(0, 8)}
+      />
+
+      <Player
+        track={currentTrack}
+        isPlaying={isPlaying}
+        onPlayPause={() => setIsPlaying(p => !p)}
+        playhead={playhead}
+        onSeek={setPlayhead}
+      />
+
+      <Toasts toasts={toasts} />
+
+      <Tweaks
+        open={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        accent={accent}
+        setAccent={setAccent}
+        fontPair={fontPair}
+        setFontPair={setFontPair}
+      />
+    </div>
+  );
+}
+
+function generateMockTracks(values, count, taskId, promptIndex) {
+  const palettes = [
+    ["#d4e85c", "#1d2a14", "#6a7a3a"],
+    ["#c7a8ff", "#1a1428", "#5a4890"],
+    ["#ff8fa8", "#281418", "#a03a58"],
+    ["#5ce8ff", "#141a28", "#3a90a0"],
+    ["#e8c25c", "#2a2414", "#8a7a3a"],
+    ["#ff5ce8", "#14142a", "#a03a90"],
+  ];
+  const titles = [
+    "Unfinished Summer", "Half-Lit Rooms", "Tremolo at Dawn",
+    "Gutter Stars", "Cathode Hymn", "Quiet Receiver",
+    "Paperbag Moon", "Tin Cup Radio", "Salt Lamp Waltz",
+    "Overcast Parade", "Morse, Slow", "Wax and Static"
+  ];
+  const sourcePrompt = values.promptMode === "multi"
+    ? (values.prompts[promptIndex % values.prompts.length] || values.prompts[0])
+    : { title: values.title, style: values.style };
+
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const pIdx = (promptIndex * 2 + i) % palettes.length;
+    const tIdx = (promptIndex * 2 + i) % titles.length;
+    out.push({
+      id: `nt_${taskId}_${i}`,
+      sunoId: `suno_${Math.random().toString(36).slice(2, 8)}`,
+      taskId,
+      title: titles[tIdx] + (values.promptMode === "multi" ? "" : ""),
+      prompt: sourcePrompt.style || values.style || values.description || "",
+      tags: (sourcePrompt.style || values.style || "generated").slice(0, 60),
+      duration: 150 + Math.floor(Math.random() * 120),
+      mode: "advanced",
+      promptMode: values.promptMode,
+      model: values.model,
+      instrumental: values.vocalType === "instrumental",
+      isFavorite: false,
+      vocalGender: values.vocalGender,
+      createdAt: new Date().toISOString(),
+      palette: palettes[pIdx],
+      fresh: true,
+    });
+  }
+  return out;
+}
+
+window.App = App;
+
+
+// Mount
+const T = window.__TWEAKS || {};
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(
+  <ConfirmProvider>
+    <App />
+  </ConfirmProvider>
+);
+</script>
+</body>
+</html>
