@@ -13,13 +13,17 @@ interface AsideProps {
   onPlay: (t: Track) => void;
   currentTrackId?: string;
   recentTracks: Track[];
+  onGoLibrary: () => void;
 }
 
 export function Aside({
-  view, batchTracks, batchJobs, completed, onPlay, currentTrackId, recentTracks,
+  view, batchTracks, batchJobs, completed, onPlay, currentTrackId, recentTracks, onGoLibrary,
 }: AsideProps) {
   const pendingJobs = batchJobs.filter(j => j.status !== 'SUCCESS' && j.status !== 'FAILED');
-  const showBatch = view === 'generating' && (batchTracks.length > 0 || pendingJobs.length > 0);
+  const showBatch = view === 'create' || view === 'generating';
+  const hasBatch = batchJobs.length > 0;
+  const savedFeed = batchTracks.slice().reverse();
+  const liveActive = pendingJobs.length > 0;
 
   if (showBatch) {
     return (
@@ -28,14 +32,41 @@ export function Aside({
           <div>
             <div className="h-eyebrow" style={{ marginBottom: 6 }}>Live Results</div>
             <div className="mono" style={{ fontSize: 11, color: 'var(--fg-2)' }}>
-              {batchTracks.length} ready · {pendingJobs.length} creating
+              {batchTracks.length} ready{hasBatch ? ` · ${pendingJobs.length} creating` : ''}
             </div>
           </div>
-          <div className="mono uc" style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: '0.14em' }}>
-            {completed ? 'DONE' : 'LIVE'}
-          </div>
+          {liveActive && (
+            <div className="mono uc live-pill" style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: '0.14em' }}>
+              <span className="live-dot" /> LIVE
+            </div>
+          )}
+          {completed && !liveActive && (
+            <div className="mono uc" style={{ fontSize: 10, color: 'var(--accent)', letterSpacing: '0.14em' }}>DONE</div>
+          )}
         </div>
         <div className={`${s.asideBody} scroll`}>
+          {!hasBatch && (
+            <div className="empty aside-idle">
+              <div className="mono uc" style={{ color: 'var(--fg-3)', fontSize: 10, letterSpacing: '0.14em', marginBottom: 8 }}>No run yet</div>
+              <div style={{ fontSize: 12, color: 'var(--fg-2)' }}>
+                Tracks you generate will appear here live as they&apos;re created.
+              </div>
+            </div>
+          )}
+
+          {/* Saved feed (newest first) */}
+          {savedFeed.length > 0 && (
+            <div className="saved-feed">
+              {savedFeed.map(t => (
+                <div key={`feed_${t.id}`} className="saved-feed-line mono">
+                  <span style={{ color: 'var(--accent)', marginRight: 6 }}>✓</span>
+                  <span style={{ color: 'var(--fg-1)' }}>&quot;{t.title}&quot;</span>
+                  <span style={{ color: 'var(--fg-3)' }}> saved to library</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {pendingJobs.map(j => (
             <div key={j.taskId} className="result-card" style={{ borderColor: 'var(--line)' }}>
               <div className="rc-cover" style={{ background: 'var(--bg-3)', display: 'grid', placeItems: 'center' }}>
@@ -45,11 +76,13 @@ export function Aside({
                 <div className="rc-title" style={{ color: 'var(--fg-2)' }}>Creating...</div>
                 <div className="rc-sub">{j.taskId} · {j.statusMessage}</div>
               </div>
-              <div className="mono" style={{ fontSize: 10, color: 'var(--warn)', letterSpacing: '0.08em' }}>
+              <div className={`mono live-badge${j.status !== 'SUCCESS' && j.status !== 'FAILED' ? ' warn' : ''}`}
+                style={{ fontSize: 10, letterSpacing: '0.14em' }}>
                 {j.status}
               </div>
             </div>
           ))}
+
           {batchTracks.map(t => (
             <div
               key={t.id}
@@ -65,9 +98,6 @@ export function Aside({
               <div className="rc-play">▶</div>
             </div>
           ))}
-          {batchTracks.length === 0 && pendingJobs.length === 0 && (
-            <div className="empty">No jobs running.</div>
-          )}
         </div>
       </div>
     );
@@ -80,7 +110,7 @@ export function Aside({
           <div className="h-eyebrow" style={{ marginBottom: 6 }}>Recent</div>
           <div className="mono" style={{ fontSize: 11, color: 'var(--fg-2)' }}>Last 24 hours</div>
         </div>
-        <button className="mono" style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <button className="aside-see-all" onClick={onGoLibrary}>
           See all →
         </button>
       </div>

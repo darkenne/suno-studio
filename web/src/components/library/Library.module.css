@@ -2,8 +2,8 @@
 
 .track {
   display: grid;
-  grid-template-columns: 48px 56px 1fr 140px 110px 90px 60px 40px;
-  gap: 14px;
+  grid-template-columns: 36px 48px 56px 1fr 140px 110px 90px 36px 36px;
+  gap: 12px;
   align-items: center;
   padding: 10px 20px;
   border-bottom: 1px solid var(--line);
@@ -12,6 +12,7 @@
 }
 .track:hover  { background: var(--bg-1); }
 .track.playing { background: var(--bg-2); }
+.track:last-child { border-bottom: none; }
 
 .num { font-family: var(--mono); font-size: 11px; color: var(--fg-3); }
 .track.playing .num { color: var(--accent); }
@@ -47,8 +48,8 @@
 /* Header */
 .trackHeader {
   display: grid;
-  grid-template-columns: 48px 56px 1fr 140px 110px 90px 60px 40px;
-  gap: 14px;
+  grid-template-columns: 36px 48px 56px 1fr 140px 110px 90px 36px 36px;
+  gap: 12px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--line);
   font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3);

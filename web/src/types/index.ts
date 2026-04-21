@@ -4,7 +4,7 @@ export type VocalType = 'vocal' | 'instrumental';
 export type JobStatus = 'PENDING' | 'TEXT' | 'FIRST' | 'SUCCESS' | 'FAILED';
 export type PromptMode = 'single' | 'multi';
 export type CreateMode = 'simple' | 'advanced';
-export type View = 'create' | 'generating' | 'library';
+export type View = 'home' | 'create' | 'generating' | 'library' | 'playlists' | 'playlist-detail';
 export type AccentKey = 'lime' | 'amber' | 'cyan' | 'magenta' | 'coral';
 export type FontPair = 'mono-sans' | 'serif-mono' | 'grotesk-mono' | 'neue-mono';
 
@@ -28,6 +28,20 @@ export interface Track {
   audioUrl?: string;
   streamAudioUrl?: string;
   imageUrl?: string;
+}
+
+export interface PlaylistTrack {
+  trackId: string;
+  position: number;
+  addedAt: string;
+}
+
+export interface Playlist {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  tracks: PlaylistTrack[];
 }
 
 export interface BatchJob {
@@ -76,10 +90,16 @@ export interface ModelOption {
   label: string;
 }
 
+export interface ToastAction {
+  label: string;
+  fn: () => void;
+}
+
 export interface Toast {
   id: number;
   msg: string;
   kind: 'ok' | 'err';
+  action?: ToastAction;
 }
 
 export interface ConfirmOptions {

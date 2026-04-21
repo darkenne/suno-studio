@@ -10,6 +10,12 @@
   height: 100vh;
   width: 100vw;
 }
+.app.noAside {
+  grid-template-columns: 220px 1fr 0;
+}
+.app.noAside .aside {
+  display: none;
+}
 
 /* Topbar */
 .topbar {
@@ -112,7 +118,31 @@
   padding: 2px 6px;
   border-radius: 2px;
 }
-.navItem.active .badge { color: var(--accent); background: var(--accent-soft); }
+.navItem.active .badge {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* nav-child 뱃지는 별도 스타일 */
+:global(.nav-child) .badge {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: var(--fg-3);
+}
+:global(.nav-child.active) .badge {
+  color: var(--accent);
+  background: transparent;
+}
+/* Nav accordion for playlists */
+.navAccordion { position: relative; }
+.navCaret {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; color: var(--fg-3); transition: transform .15s; cursor: pointer; border-radius: 2px;
+}
+.navCaret:hover { color: var(--fg-1); background: var(--bg-2); }
+.navCaret.open { transform: rotate(180deg); }
+
 .navFoot {
   margin-top: auto;
   padding: 16px 20px;
@@ -130,6 +160,7 @@
   background: var(--bg);
   min-height: 0; /* required for overflow-y: auto inside CSS Grid */
 }
+.main > :global(.section:last-child) { border-bottom: 0; }
 
 /* Aside */
 .aside {
@@ -190,7 +221,7 @@
   background: var(--accent); border-radius: 50%;
   top: 50%; transform: translate(-50%, -50%);
 }
-.playerTrackInfo { min-width: 0; display: flex; gap: 10px; align-items: center; }
+.playerTrackInfo { min-width: 0; display: flex; flex-direction: column; }
 .playerTitle { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 .playerSub { font-family: var(--mono); font-size: 10px; color: var(--fg-3); }
 

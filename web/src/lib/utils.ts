@@ -40,6 +40,14 @@ export function rng(seed: number): () => number {
   };
 }
 
+export function formatHMS2(s: number): string {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  if (h > 0) return `${h}H ${m}M`;
+  return `${m}M ${sec}S`;
+}
+
 export function hashSimple(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;

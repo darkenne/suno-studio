@@ -1,26 +1,40 @@
 'use client';
 import { useMemo, useState } from 'react';
-import type { Track } from '@/types';
+import type { Playlist, Track } from '@/types';
 import { Cover } from '@/components/cover/Cover';
 import { Seg } from '@/components/ui/Seg';
+import { Menu, MenuItem, MenuSep, MenuHeading } from '@/components/ui/Menu';
 import { useConfirm } from '@/hooks/useConfirm';
 import { formatTime, formatHMS } from '@/lib/utils';
 import s from './Library.module.css';
 
 interface LibraryProps {
   tracks: Track[];
+  playlists: Playlist[];
   currentTrackId?: string;
   onPlay: (t: Track) => void;
   onToggleFav: (id: string) => void;
   onDelete: (id: string) => void;
+  onAddToPlaylist: (playlistId: string, trackIds: string[]) => void;
+  onAddToQueue: (trackId: string) => void;
+  onNewPlaylistWithTracks: (trackIds: string[]) => void;
 }
 
-export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete }: LibraryProps) {
+export function Library({
+  tracks, playlists, currentTrackId, onPlay, onToggleFav, onDelete,
+  onAddToPlaylist, onAddToQueue, onNewPlaylistWithTracks,
+}: LibraryProps) {
   const confirm = useConfirm();
   const [q, setQ] = useState('');
   const [mode, setMode] = useState<'all' | 'advanced' | 'simple'>('all');
   const [favOnly, setFavOnly] = useState(false);
   const [orderBy, setOrderBy] = useState<'newest' | 'oldest'>('newest');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [rowMenuFor, setRowMenuFor] = useState<string | null>(null);
+  const [rowMenuRect, setRowMenuRect] = useState<DOMRect | null>(null);
+  const [addPlaylistFor, setAddPlaylistFor] = useState<string | null>(null);
+  const [barMenuOpen, setBarMenuOpen] = useState(false);
+  const [barMenuRect, setBarMenuRect] = useState<DOMRect | null>(null);
 
   const filtered = useMemo(() => {
     let list = [...tracks];
@@ -42,8 +56,18 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
     return list;
   }, [tracks, q, mode, favOnly, orderBy]);
 
-  const totalDur  = filtered.reduce((acc, t) => acc + t.duration, 0);
-  const favCount  = tracks.filter(t => t.isFavorite).length;
+  const totalDur = filtered.reduce((acc, t) => acc + t.duration, 0);
+  const favCount = tracks.filter(t => t.isFavorite).length;
+
+  const toggleSelect = (id: string) => {
+    setSelected(s => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+  const selectedArr = Array.from(selected);
 
   return (
     <div>
@@ -85,11 +109,7 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
           value={mode}
           onChange={setMode}
         />
-        <button
-          type="button"
-          className={`btn sm${favOnly ? ' primary' : ''}`}
-          onClick={() => setFavOnly(v => !v)}
-        >
+        <button type="button" className={`btn sm${favOnly ? ' primary' : ''}`} onClick={() => setFavOnly(v => !v)}>
           ★ Favorites Only
         </button>
         <div style={{ flex: 1 }} />
@@ -101,11 +121,12 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
       </div>
 
       {/* Header row */}
-      <div className={s.trackHeader}>
+      <div className={`${s.trackHeader} lib-track-header`}>
+        <span />
         <span>#</span>
         <span />
         <span>Title · Tags</span>
-        <span>Mode / Prompt</span>
+        <span>Mode · Prompt</span>
         <span>Model</span>
         <span style={{ textAlign: 'right' }}>Duration</span>
         <span />
@@ -117,9 +138,25 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
         {filtered.map((t, i) => (
           <div
             key={t.id}
-            className={`${s.track}${t.id === currentTrackId ? ` ${s.playing}` : ''}`}
+            className={
+              `${s.track} lib-track` +
+              (t.id === currentTrackId ? ` ${s.playing}` : '') +
+              (selected.has(t.id) ? ' selected' : '')
+            }
             onClick={() => onPlay(t)}
           >
+            <label className="track-check" onClick={e => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={selected.has(t.id)}
+                onChange={() => toggleSelect(t.id)}
+              />
+              <span className="chk" aria-hidden>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 5l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </label>
             <div className={s.num}>{String(i + 1).padStart(2, '0')}</div>
             <div className={s.cover}><Cover track={t} size={44} /></div>
             <div className={s.titleBlock}>
@@ -152,18 +189,13 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
             <button
               type="button"
               className={s.menu}
-              onClick={async e => {
+              onClick={e => {
                 e.stopPropagation();
-                const ok = await confirm({
-                  eyebrow: 'Library',
-                  title: `Delete "${t.title}"?`,
-                  body: 'This removes the track from your library. The generated audio cannot be recovered.',
-                  confirmLabel: 'Delete track',
-                  tone: 'danger',
-                });
-                if (ok) onDelete(t.id);
+                setRowMenuRect(e.currentTarget.getBoundingClientRect());
+                setRowMenuFor(t.id);
+                setAddPlaylistFor(null);
               }}
-              title="Delete"
+              title="More"
             >
               ⋯
             </button>
@@ -176,6 +208,112 @@ export function Library({ tracks, currentTrackId, onPlay, onToggleFav, onDelete 
           </div>
         )}
       </div>
+
+      {/* Multi-select action bar */}
+      {selected.size > 0 && (
+        <div className="multi-bar">
+          <div className="multi-bar-inner">
+            <div className="mono uc" style={{ fontSize: 11, color: 'var(--accent)', letterSpacing: '0.12em' }}>
+              ● {selected.size} SELECTED
+            </div>
+            <div style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="btn sm primary"
+              onClick={e => {
+                setBarMenuRect(e.currentTarget.getBoundingClientRect());
+                setBarMenuOpen(true);
+              }}
+            >
+              + Add to Playlist
+            </button>
+            <button type="button" className="btn sm ghost" onClick={clearSelection}>Clear</button>
+          </div>
+        </div>
+      )}
+
+      {/* Row context menu */}
+      <Menu
+        open={!!rowMenuFor}
+        anchorRect={rowMenuRect}
+        onClose={() => { setRowMenuFor(null); setAddPlaylistFor(null); }}
+      >
+        {!addPlaylistFor ? (
+          <>
+            <MenuItem onClick={() => { if (rowMenuFor) { onAddToQueue(rowMenuFor); setRowMenuFor(null); } }}>
+              Add to Queue
+            </MenuItem>
+            <MenuItem onClick={() => setAddPlaylistFor(rowMenuFor)}>
+              Add to Playlist →
+            </MenuItem>
+            <MenuSep />
+            <MenuItem
+              danger
+              onClick={async () => {
+                const id = rowMenuFor;
+                const t = tracks.find(x => x.id === id);
+                setRowMenuFor(null);
+                if (!t) return;
+                const ok = await confirm({
+                  eyebrow: 'Library',
+                  title: `Delete "${t.title}"?`,
+                  body: 'This removes the track from your library. The generated audio cannot be recovered.',
+                  confirmLabel: 'Delete track',
+                  tone: 'danger',
+                });
+                if (ok && id) onDelete(id);
+              }}
+            >
+              Delete Track
+            </MenuItem>
+          </>
+        ) : (
+          <>
+            <MenuHeading>Add to Playlist</MenuHeading>
+            {playlists.map(pl => (
+              <MenuItem
+                key={pl.id}
+                sub={pl.tracks.length}
+                onClick={() => {
+                  if (addPlaylistFor) onAddToPlaylist(pl.id, [addPlaylistFor]);
+                  setRowMenuFor(null);
+                  setAddPlaylistFor(null);
+                }}
+              >
+                {pl.title}
+              </MenuItem>
+            ))}
+            <MenuSep />
+            <MenuItem
+              onClick={() => {
+                if (addPlaylistFor) onNewPlaylistWithTracks([addPlaylistFor]);
+                setRowMenuFor(null);
+                setAddPlaylistFor(null);
+              }}
+            >
+              + New Playlist
+            </MenuItem>
+          </>
+        )}
+      </Menu>
+
+      {/* Multi-select bar menu */}
+      <Menu open={barMenuOpen} anchorRect={barMenuRect} onClose={() => setBarMenuOpen(false)}>
+        <MenuHeading>Add {selected.size} track{selected.size === 1 ? '' : 's'} to…</MenuHeading>
+        {playlists.map(pl => (
+          <MenuItem
+            key={pl.id}
+            sub={pl.tracks.length}
+            onClick={() => { onAddToPlaylist(pl.id, selectedArr); setBarMenuOpen(false); clearSelection(); }}
+          >
+            {pl.title}
+          </MenuItem>
+        ))}
+        <MenuSep />
+        <MenuItem onClick={() => { onNewPlaylistWithTracks(selectedArr); setBarMenuOpen(false); clearSelection(); }}>
+          + New Playlist
+        </MenuItem>
+      </Menu>
     </div>
   );
 }

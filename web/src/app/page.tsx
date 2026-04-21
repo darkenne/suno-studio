@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, RepeatMode, Track, View } from '@/types';
-import { MOCK_TRACKS } from '@/lib/data';
+import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, Playlist, PlaylistTrack, RepeatMode, Track, View } from '@/types';
+import { MOCK_TRACKS, seedPlaylists } from '@/lib/data';
 import { ConfirmProvider } from '@/hooks/useConfirm';
 import { useBatch } from '@/hooks/useBatch';
 import { useToasts } from '@/hooks/useToasts';
@@ -14,31 +14,45 @@ import { CreatePanel } from '@/components/create/CreatePanel';
 import { SimplePanel } from '@/components/create/SimplePanel';
 import { GenerationView } from '@/components/generation/GenerationView';
 import { Library } from '@/components/library/Library';
+import { Home } from '@/components/home/Home';
+import { PlaylistsPage, PlaylistDetailPage, PlaylistTitleModal } from '@/components/playlists/Playlists';
 import { Toasts } from '@/components/ui/Toasts';
 import s from '@/components/shell/Shell.module.css';
 
-const STORAGE_KEY = 'suno_tracks';
+const STORAGE_KEY       = 'suno_tracks';
+const PLAYLISTS_KEY     = 'suno_playlists';
 
 function Studio() {
-  const [view, setView]             = useState<View>('create');
-  const [createMode, setCreateMode] = useState<CreateMode>('simple');
-  const [tracks, setTracks]         = useState<Track[]>(MOCK_TRACKS);
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(MOCK_TRACKS[0] ?? null);
-  const [isPlaying, setIsPlaying]   = useState(false);
-  const [playhead, setPlayhead]     = useState(0);
-  const [tweaksOpen, setTweaksOpen] = useState(false);
-  const [accent, setAccent]         = useState<AccentKey>('lime');
-  const [fontPair, setFontPair]     = useState<FontPair>('mono-sans');
-  const [repeat, setRepeat]         = useState<RepeatMode>('off');
-  const [shuffle, setShuffle]       = useState(false);
-  const [volume, setVolume]         = useState(0.8);
-  const [hydrated, setHydrated]     = useState(false);
+  const [view, setView]                     = useState<View>('home');
+  const [createMode, setCreateMode]         = useState<CreateMode>('simple');
+  const [tracks, setTracks]                 = useState<Track[]>(MOCK_TRACKS);
+  const [playlists, setPlaylists]           = useState<Playlist[]>(() => seedPlaylists(MOCK_TRACKS));
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [currentTrack, setCurrentTrack]     = useState<Track | null>(MOCK_TRACKS[0] ?? null);
+  const [isPlaying, setIsPlaying]           = useState(false);
+  const [playhead, setPlayhead]             = useState(0);
+  const [tweaksOpen, setTweaksOpen]         = useState(false);
+  const [accent, setAccent]                 = useState<AccentKey>('lime');
+  const [fontPair, setFontPair]             = useState<FontPair>('mono-sans');
+  const [repeat, setRepeat]                 = useState<RepeatMode>('off');
+  const [shuffle, setShuffle]               = useState(false);
+  const [volume, setVolume]                 = useState(0.8);
+  const [hydrated, setHydrated]             = useState(false);
 
-  const { toasts, push: pushToast } = useToasts();
+  /* Playlist modal */
+  const [plModalOpen, setPlModalOpen]       = useState(false);
+  const [plModalMode, setPlModalMode]       = useState<'create' | 'rename'>('create');
+  const [plModalInitial, setPlModalInitial] = useState('');
+  const [plModalCallback, setPlModalCallback] = useState<((title: string) => void) | null>(null);
+
+  /* Queue (tracks to play next) */
+  const [queue, setQueue]                   = useState<string[]>([]);
+
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const { jobs, batchTotal, batchTracks, isComplete, startBatch, cancelBatch } = useBatch();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load persisted tracks from localStorage after mount (client-only)
+  /* ── Load persisted state ─────────────────────────── */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -47,65 +61,59 @@ function Studio() {
         if (parsed.length > 0) {
           setTracks(parsed);
           setCurrentTrack(parsed[0] ?? null);
+          setPlaylists(seedPlaylists(parsed));
         }
+      }
+    } catch {}
+    try {
+      const rawPl = localStorage.getItem(PLAYLISTS_KEY);
+      if (rawPl) {
+        const parsed = JSON.parse(rawPl) as Playlist[];
+        if (parsed.length > 0) setPlaylists(parsed);
       }
     } catch {}
     setHydrated(true);
   }, []);
 
-  // Persist tracks — only after localStorage has been loaded (prevents overwriting on first render)
+  /* ── Persist ──────────────────────────────────────── */
   useEffect(() => {
     if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
-    } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks)); } catch {}
   }, [tracks, hydrated]);
 
-  // Sync audio src when track changes
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists)); } catch {}
+  }, [playlists, hydrated]);
+
+  /* ── Audio ────────────────────────────────────────── */
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const url = currentTrack?.audioUrl ?? currentTrack?.streamAudioUrl ?? '';
-    if (audio.src !== url) {
-      audio.src = url;
-      audio.load();
-    }
+    if (audio.src !== url) { audio.src = url; audio.load(); }
   }, [currentTrack]);
 
-  // Sync play/pause state
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack?.audioUrl) return;
-    if (isPlaying) {
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-    }
+    if (isPlaying) audio.play().catch(() => {}); else audio.pause();
   }, [isPlaying, currentTrack]);
 
-  // Apply volume
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
 
-  // Stable ref so the ended listener always calls the latest handleNext
   const handleNextRef = useRef<() => void>(() => {});
 
-  // Sync playhead from audio + ended → advance to next track
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => setPlayhead(audio.currentTime);
+    const onTime  = () => setPlayhead(audio.currentTime);
     const onEnded = () => handleNextRef.current();
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
-    return () => {
-      audio.removeEventListener('timeupdate', onTime);
-      audio.removeEventListener('ended', onEnded);
-    };
+    return () => { audio.removeEventListener('timeupdate', onTime); audio.removeEventListener('ended', onEnded); };
   }, []);
 
-  // Simulated playhead tick — only used for mock tracks without audioUrl
   useEffect(() => {
     if (!isPlaying || !currentTrack || currentTrack.audioUrl) return;
     const id = setInterval(() => {
@@ -117,7 +125,7 @@ function Studio() {
     return () => clearInterval(id);
   }, [isPlaying, currentTrack]);
 
-  // Apply design-system tweaks
+  /* ── Design tokens ───────────────────────────────── */
   useEffect(() => {
     const root = document.documentElement;
     const accents: Record<AccentKey, [string, string, string]> = {
@@ -136,17 +144,16 @@ function Studio() {
   useEffect(() => {
     const root = document.documentElement;
     const fonts: Record<FontPair, [string, string]> = {
-      'mono-sans':    ['"Inter Tight", system-ui, sans-serif', '"JetBrains Mono", ui-monospace, monospace'],
-      'serif-mono':   ['"Fraunces", Georgia, serif',           '"JetBrains Mono", ui-monospace, monospace'],
-      'grotesk-mono': ['"Space Grotesk", system-ui, sans-serif','IBM Plex Mono", ui-monospace, monospace'],
-      'neue-mono':    ['"Inter Tight", system-ui, sans-serif', '"IBM Plex Mono", ui-monospace, monospace'],
+      'mono-sans':    ['var(--font-inter-tight), "Inter Tight", system-ui, sans-serif',   'var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace'],
+      'serif-mono':   ['var(--font-fraunces), "Fraunces", Georgia, serif',                'var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace'],
+      'grotesk-mono': ['var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif', 'var(--font-ibm-plex), "IBM Plex Mono", ui-monospace, monospace'],
+      'neue-mono':    ['var(--font-inter-tight), "Inter Tight", system-ui, sans-serif',   'var(--font-ibm-plex), "IBM Plex Mono", ui-monospace, monospace'],
     };
     const [sans, mono] = fonts[fontPair];
     root.style.setProperty('--sans', sans);
     root.style.setProperty('--mono', mono);
   }, [fontPair]);
 
-  // Show scrollbars briefly while scrolling
   useEffect(() => {
     const timers = new WeakMap<EventTarget, ReturnType<typeof setTimeout>>();
     const handler = (e: Event) => {
@@ -161,6 +168,7 @@ function Studio() {
     return () => document.removeEventListener('scroll', handler, true);
   }, []);
 
+  /* ── Playback helpers ────────────────────────────── */
   const playTrack = useCallback((t: Track) => {
     setCurrentTrack(t);
     setPlayhead(0);
@@ -176,6 +184,13 @@ function Studio() {
       setPlayhead(0);
       return;
     }
+    /* Drain queue first */
+    if (queue.length > 0) {
+      const [nextId, ...rest] = queue;
+      setQueue(rest);
+      const qt = tracks.find(t => t.id === nextId);
+      if (qt) { playTrack(qt); return; }
+    }
     const idx = currentTrack ? tracks.findIndex(t => t.id === currentTrack.id) : -1;
     let next: Track | undefined;
     if (shuffle) {
@@ -185,12 +200,10 @@ function Studio() {
       const ni = idx + 1;
       next = ni < tracks.length ? tracks[ni] : (repeat === 'all' ? tracks[0] : undefined);
     }
-    if (next) playTrack(next);
-    else { setIsPlaying(false); setPlayhead(0); }
-  }, [tracks, currentTrack, repeat, shuffle, playTrack]);
+    if (next) playTrack(next); else { setIsPlaying(false); setPlayhead(0); }
+  }, [tracks, currentTrack, repeat, shuffle, queue, playTrack]);
 
   const handlePrev = useCallback(() => {
-    // If more than 3 seconds in, restart current track
     if (playhead > 3 && currentTrack) {
       setPlayhead(0);
       if (audioRef.current) audioRef.current.currentTime = 0;
@@ -205,13 +218,12 @@ function Studio() {
       const pi = idx - 1;
       prev = pi >= 0 ? tracks[pi] : (repeat === 'all' ? tracks[tracks.length - 1] : undefined);
     }
-    if (prev) playTrack(prev);
-    else { setPlayhead(0); if (audioRef.current) audioRef.current.currentTime = 0; }
+    if (prev) playTrack(prev); else { setPlayhead(0); if (audioRef.current) audioRef.current.currentTime = 0; }
   }, [tracks, currentTrack, repeat, shuffle, playhead, playTrack]);
 
-  // Keep ended handler ref up to date
   useEffect(() => { handleNextRef.current = handleNext; }, [handleNext]);
 
+  /* ── Batch generation ────────────────────────────── */
   const handleStartBatch = useCallback((values: AdvancedFormValues) => {
     startBatch(values, {
       onNewTracks: newTracks => setTracks(prev => [...newTracks, ...prev]),
@@ -224,36 +236,185 @@ function Studio() {
     cancelBatch({ onToast: pushToast });
   }, [cancelBatch, pushToast]);
 
+  /* ── Track actions ───────────────────────────────── */
   const toggleFav = (id: string) => {
     setTracks(ts => ts.map(t => t.id === id ? { ...t, isFavorite: !t.isFavorite } : t));
   };
 
   const deleteTrack = (id: string) => {
     setTracks(ts => ts.filter(t => t.id !== id));
+    setPlaylists(pls => pls.map(pl => ({
+      ...pl,
+      tracks: pl.tracks.filter(pt => pt.trackId !== id),
+    })));
     pushToast('Track removed');
   };
 
+  const addToQueue = (trackId: string) => {
+    setQueue(q => [...q, trackId]);
+    const t = tracks.find(x => x.id === trackId);
+    pushToast(`"${t?.title ?? trackId}" added to queue`);
+  };
+
+  /* ── Playlist actions ────────────────────────────── */
+  const openCreatePlaylistModal = (cb: (title: string) => void) => {
+    setPlModalMode('create');
+    setPlModalInitial('Untitled');
+    setPlModalCallback(() => cb);
+    setPlModalOpen(true);
+  };
+
+  const createPlaylist = (title: string, trackIds: string[] = []): Playlist => {
+    const pl: Playlist = {
+      id: 'pl_' + Math.random().toString(36).slice(2, 8),
+      title,
+      description: '',
+      createdAt: new Date().toISOString(),
+      tracks: trackIds.map((id, i) => ({ trackId: id, position: i, addedAt: new Date().toISOString() })),
+    };
+    setPlaylists(prev => [...prev, pl]);
+    return pl;
+  };
+
+  const handleNewPlaylist = () => {
+    openCreatePlaylistModal(title => {
+      const pl = createPlaylist(title);
+      setActivePlaylistId(pl.id);
+      setView('playlist-detail');
+    });
+  };
+
+  const handleNewPlaylistWithTracks = (trackIds: string[]) => {
+    openCreatePlaylistModal(title => {
+      const pl = createPlaylist(title, trackIds);
+      setActivePlaylistId(pl.id);
+      setView('playlist-detail');
+      pushToast(`Playlist "${pl.title}" created with ${trackIds.length} track${trackIds.length === 1 ? '' : 's'}`);
+    });
+  };
+
+  const openPlaylist = (id: string) => {
+    setActivePlaylistId(id);
+    setView('playlist-detail');
+  };
+
+  const renamePlaylist = (id: string, title: string) => {
+    setPlaylists(pls => pls.map(pl => pl.id === id ? { ...pl, title } : pl));
+  };
+
+  const describePlaylist = (id: string, description: string) => {
+    setPlaylists(pls => pls.map(pl => pl.id === id ? { ...pl, description } : pl));
+  };
+
+  const deletePlaylist = (id: string) => {
+    setPlaylists(pls => pls.filter(pl => pl.id !== id));
+    if (activePlaylistId === id) {
+      setActivePlaylistId(null);
+      setView('playlists');
+    }
+  };
+
+  const addToPlaylist = (playlistId: string, trackIds: string[]) => {
+    setPlaylists(pls => pls.map(pl => {
+      if (pl.id !== playlistId) return pl;
+      const existing = new Set(pl.tracks.map(pt => pt.trackId));
+      const newItems: PlaylistTrack[] = trackIds
+        .filter(id => !existing.has(id))
+        .map((id, i) => ({ trackId: id, position: pl.tracks.length + i, addedAt: new Date().toISOString() }));
+      return { ...pl, tracks: [...pl.tracks, ...newItems] };
+    }));
+    const pl = playlists.find(p => p.id === playlistId);
+    pushToast(
+      `Added to "${pl?.title ?? 'playlist'}"`,
+      'ok',
+      { label: 'View', fn: () => openPlaylist(playlistId) },
+    );
+  };
+
+  const removeFromPlaylist = (playlistId: string, trackId: string) => {
+    setPlaylists(pls => pls.map(pl => pl.id !== playlistId ? pl : {
+      ...pl,
+      tracks: pl.tracks.filter(pt => pt.trackId !== trackId).map((pt, i) => ({ ...pt, position: i })),
+    }));
+  };
+
+  const reorderPlaylist = (playlistId: string, orderedIds: string[]) => {
+    setPlaylists(pls => pls.map(pl => pl.id !== playlistId ? pl : {
+      ...pl,
+      tracks: orderedIds.map((id, i) => {
+        const existing = pl.tracks.find(pt => pt.trackId === id);
+        return existing ? { ...existing, position: i } : { trackId: id, position: i, addedAt: new Date().toISOString() };
+      }),
+    }));
+  };
+
+  const playPlaylist = (playlistId: string, doShuffle: boolean) => {
+    const pl = playlists.find(p => p.id === playlistId);
+    if (!pl || pl.tracks.length === 0) return;
+    const ordered = pl.tracks
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(pt => tracks.find(t => t.id === pt.trackId))
+      .filter((t): t is Track => Boolean(t));
+    if (ordered.length === 0) return;
+    if (doShuffle) {
+      const shuffled = [...ordered].sort(() => Math.random() - 0.5);
+      playTrack(shuffled[0]);
+      setQueue(shuffled.slice(1).map(t => t.id));
+    } else {
+      playTrack(ordered[0]);
+      setQueue(ordered.slice(1).map(t => t.id));
+    }
+    setShuffle(doShuffle);
+  };
+
+  /* ── Misc ─────────────────────────────────────────── */
   const runningCount = jobs.filter(j => j.status !== 'SUCCESS' && j.status !== 'FAILED').length;
+  const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null;
+
+  const noAside = view === 'playlists' || view === 'playlist-detail' || view === 'library';
+
+  const credits = { used: 153, total: 1000, remaining: 847 };
 
   return (
-    <div className={s.app}>
+    <div className={`${s.app}${noAside ? ` ${s.noAside}` : ''}`}>
       <TopBar batchJobs={jobs} batchTotal={batchTotal} savedCount={batchTracks.length} />
 
       <Nav
         view={view}
         onNav={setView}
+        onOpenPlaylist={openPlaylist}
+        onNewPlaylist={handleNewPlaylist}
+        activePlaylistId={activePlaylistId}
+        playlists={playlists}
         trackCount={tracks.length}
         favCount={tracks.filter(t => t.isFavorite).length}
         runningCount={runningCount}
       />
 
       <main className={`${s.main} scroll`}>
+        {view === 'home' && (
+          <Home
+            tracks={tracks}
+            playlists={playlists}
+            credits={credits}
+            currentTrackId={currentTrack?.id}
+            onPlay={playTrack}
+            onGoLibrary={() => setView('library')}
+            onGoPlaylists={() => setView('playlists')}
+            onOpenPlaylist={openPlaylist}
+            onGoCreate={() => setView('create')}
+            onNewPlaylist={handleNewPlaylist}
+          />
+        )}
+
         {view === 'create' && createMode === 'advanced' && (
           <CreatePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
         )}
         {view === 'create' && createMode === 'simple' && (
           <SimplePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
         )}
+
         {view === 'generating' && (
           <GenerationView
             jobs={jobs}
@@ -263,26 +424,61 @@ function Studio() {
             onDone={() => setView('library')}
           />
         )}
+
         {view === 'library' && (
           <Library
             tracks={tracks}
+            playlists={playlists}
             currentTrackId={currentTrack?.id}
             onPlay={playTrack}
             onToggleFav={toggleFav}
             onDelete={deleteTrack}
+            onAddToPlaylist={addToPlaylist}
+            onAddToQueue={addToQueue}
+            onNewPlaylistWithTracks={handleNewPlaylistWithTracks}
+          />
+        )}
+
+        {view === 'playlists' && (
+          <PlaylistsPage
+            playlists={playlists}
+            tracks={tracks}
+            onOpen={openPlaylist}
+            onCreate={handleNewPlaylist}
+            onDelete={deletePlaylist}
+          />
+        )}
+
+        {view === 'playlist-detail' && activePlaylist && (
+          <PlaylistDetailPage
+            playlist={activePlaylist}
+            tracks={tracks}
+            currentTrackId={currentTrack?.id}
+            onPlayPlaylist={playPlaylist}
+            onPlayTrack={(t) => playTrack(t)}
+            onRename={renamePlaylist}
+            onDescribe={describePlaylist}
+            onRemoveTrack={removeFromPlaylist}
+            onReorder={reorderPlaylist}
+            onDelete={deletePlaylist}
+            onAddToQueue={addToQueue}
+            onBack={() => setView('playlists')}
           />
         )}
       </main>
 
-      <Aside
-        view={view}
-        batchTracks={batchTracks}
-        batchJobs={jobs}
-        completed={isComplete}
-        onPlay={playTrack}
-        currentTrackId={currentTrack?.id}
-        recentTracks={tracks.slice(0, 8)}
-      />
+      {!noAside && (
+        <Aside
+          view={view}
+          batchTracks={batchTracks}
+          batchJobs={jobs}
+          completed={isComplete}
+          onPlay={playTrack}
+          currentTrackId={currentTrack?.id}
+          recentTracks={tracks.slice(0, 8)}
+          onGoLibrary={() => setView('library')}
+        />
+      )}
 
       <Player
         track={currentTrack}
@@ -291,9 +487,7 @@ function Studio() {
         playhead={playhead}
         onSeek={v => {
           setPlayhead(v);
-          if (audioRef.current && currentTrack?.audioUrl) {
-            audioRef.current.currentTime = v;
-          }
+          if (audioRef.current && currentTrack?.audioUrl) audioRef.current.currentTime = v;
         }}
         onPrev={handlePrev}
         onNext={handleNext}
@@ -305,7 +499,7 @@ function Studio() {
         onVolumeChange={setVolume}
       />
 
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
 
       <Tweaks
         open={tweaksOpen}
@@ -314,6 +508,18 @@ function Studio() {
         setAccent={setAccent}
         fontPair={fontPair}
         setFontPair={setFontPair}
+      />
+
+      <PlaylistTitleModal
+        open={plModalOpen}
+        mode={plModalMode}
+        initialTitle={plModalInitial}
+        onCancel={() => { setPlModalOpen(false); setPlModalCallback(null); }}
+        onSubmit={title => {
+          setPlModalOpen(false);
+          plModalCallback?.(title);
+          setPlModalCallback(null);
+        }}
       />
 
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}

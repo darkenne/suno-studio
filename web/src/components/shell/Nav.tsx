@@ -1,16 +1,26 @@
 'use client';
-import type { View } from '@/types';
+import { useState } from 'react';
+import type { Playlist, View } from '@/types';
 import s from './Shell.module.css';
 
 interface NavProps {
   view: View;
   onNav: (v: View) => void;
+  onOpenPlaylist: (id: string) => void;
+  onNewPlaylist: () => void;
+  activePlaylistId: string | null;
+  playlists: Playlist[];
   trackCount: number;
   favCount: number;
   runningCount: number;
 }
 
-export function Nav({ view, onNav, trackCount, favCount, runningCount }: NavProps) {
+export function Nav({
+  view, onNav, onOpenPlaylist, onNewPlaylist, activePlaylistId, playlists,
+  trackCount, favCount, runningCount,
+}: NavProps) {
+  const [plExpanded, setPlExpanded] = useState(true);
+
   const item = (key: View, label: string, badge?: number | string | null) => (
     <button
       key={key}
@@ -24,27 +34,55 @@ export function Nav({ view, onNav, trackCount, favCount, runningCount }: NavProp
 
   return (
     <nav className={`${s.nav} scroll`}>
-      <div className={s.navSec}>Workspace</div>
-      {item('create', 'Create')}
-      {item('generating', 'Generating', runningCount || null)}
+      {/* Home */}
+      <button
+        className={`${s.navItem}${view === 'home' ? ` ${s.active}` : ''}`}
+        style={{ fontWeight: 500, letterSpacing: '0.02em' }}
+        onClick={() => onNav('home')}
+      >
+        <span>Home</span>
+      </button>
+
+      {item('create', 'Create', runningCount || null)}
       {item('library', 'Library', trackCount)}
 
-      <div className={s.navSec}>Collections</div>
-      <button className={s.navItem}>
-        <span>Favorites</span>
-        <span className={s.badge}>{favCount}</span>
+      {/* Playlists accordion */}
+      <button
+        className={`${s.navItem} ${s.navAccordion}${view === 'playlists' || view === 'playlist-detail' ? ` ${s.active}` : ''}`}
+        onClick={() => { onNav('playlists'); setPlExpanded(true); }}
+      >
+        <span>Playlists</span>
+        <span
+          className={`${s.navCaret}${plExpanded ? ` ${s.open}` : ''}`}
+          onClick={(e) => { e.stopPropagation(); setPlExpanded(v => !v); }}
+          role="button"
+          aria-label="Toggle playlists"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </button>
-      <button className={s.navItem}>
-        <span>Recent</span>
-        <span className={s.badge}>24h</span>
-      </button>
-      <button className={s.navItem}><span>Instrumentals</span></button>
 
-      <div className={s.navSec}>Presets</div>
-      <button className={s.navItem}><span>Lo-fi Study</span></button>
-      <button className={s.navItem}><span>Dream-pop</span></button>
-      <button className={s.navItem}><span>Ambient Drone</span></button>
-      <button className={s.navItem}><span>+ New Preset</span></button>
+      {plExpanded && (
+        <div className="nav-children">
+          {playlists.map(pl => (
+            <button
+              key={pl.id}
+              className={`nav-child${view === 'playlist-detail' && activePlaylistId === pl.id ? ' active' : ''}`}
+              onClick={() => onOpenPlaylist(pl.id)}
+            >
+              <span className="nav-child-dot" />
+              <span className="nav-child-label">{pl.title}</span>
+              <span className={s.badge}>{pl.tracks.length}</span>
+            </button>
+          ))}
+          <button className="nav-child add" onClick={onNewPlaylist}>
+            <span className="nav-child-dot">+</span>
+            <span className="nav-child-label">New Playlist</span>
+          </button>
+        </div>
+      )}
 
       <div className={s.navFoot}>
         v0.4.2 · Suno V5.5<br />

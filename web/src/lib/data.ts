@@ -1,4 +1,4 @@
-import type { Track, ModelOption } from '@/types';
+import type { Track, ModelOption, Playlist } from '@/types';
 
 export const GENRES = [
   'pop', 'lo-fi', 'ambient', 'folk', 'synthwave', 'indie',
@@ -199,3 +199,13 @@ export const MOCK_TRACKS: Track[] = [
     palette: ['#a88ff5', '#1a1428', '#604aa0'],
   },
 ];
+
+export function seedPlaylists(tracks: Track[]): Playlist[] {
+  const now = new Date().toISOString();
+  const first = tracks.slice(0, 4).map((t, i) => ({ trackId: t.id, position: i, addedAt: t.createdAt }));
+  const second = tracks.slice(4, 7).map((t, i) => ({ trackId: t.id, position: i, addedAt: t.createdAt }));
+  return [
+    { id: 'pl_lofi',  title: 'Lo-fi Collection', description: 'Late-night study rotation', createdAt: now, tracks: first },
+    { id: 'pl_drive', title: 'Dawn Drive',        description: '',                           createdAt: now, tracks: second },
+  ];
+}

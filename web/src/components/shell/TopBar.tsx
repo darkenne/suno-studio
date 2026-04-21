@@ -18,7 +18,7 @@ export function TopBar({ batchJobs, batchTotal, savedCount }: TopBarProps) {
         <div className={s.brand}>
           <div className={s.brandMark} />
           <span>
-            SUNO<span style={{ color: 'var(--fg-3)', margin: '0 4px' }}>/</span>STUDIO
+            REEL
           </span>
         </div>
         <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -42,7 +42,7 @@ export function TopBar({ batchJobs, batchTotal, savedCount }: TopBarProps) {
           <span className={s.dot} />CONNECTED
         </span>
         <span>
-          QUOTA <span className="tnum" style={{ color: 'var(--fg-1)', margin: '0 4px' }}>847</span> / 1000
+          CREDITS <span className="tnum" style={{ color: 'var(--fg-1)', margin: '0 4px' }}>847</span> / 1000
         </span>
       </div>
     </div>

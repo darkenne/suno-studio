@@ -201,7 +201,7 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
       </div>
 
       {/* Run settings */}
-      <div className="section">
+      <div className="section no-underline">
         <div className="section-head">
           <h2>Run Settings</h2>
           <span className="muted">{apiCalls} REQUEST{apiCalls > 1 ? 'S' : ''} · {count} TRACK{count > 1 ? 'S' : ''}</span>

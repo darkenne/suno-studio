@@ -177,7 +177,7 @@ export function CreatePanel({ onStartBatch, onSwitchMode }: CreatePanelProps) {
       </div>
 
       {/* Run settings */}
-      <div className="section">
+      <div className="section no-underline">
         <div className="section-head">
           <h2>Run Settings</h2>
           <span className="muted">{apiCalls} REQUEST{apiCalls > 1 ? 'S' : ''} · {values.count} TRACK{values.count > 1 ? 'S' : ''}</span>
