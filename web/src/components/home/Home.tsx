@@ -1,12 +1,15 @@
 'use client';
 import type { Playlist, Track } from '@/types';
+import { ArrowRight, CircleDot, Plus, Play } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { formatTime } from '@/lib/utils';
 
 interface HomeProps {
   tracks: Track[];
   playlists: Playlist[];
-  credits: { used: number; total: number; remaining: number };
+  credits: { used: number | null; total: number | null; remaining: number | null };
+  isCreditsLoading: boolean;
+  isDataLoading: boolean;
   currentTrackId?: string;
   onPlay: (t: Track) => void;
   onGoLibrary: () => void;
@@ -17,11 +20,12 @@ interface HomeProps {
 }
 
 export function Home({
-  tracks, playlists, credits, currentTrackId, onPlay,
+  tracks, playlists, credits, isCreditsLoading, isDataLoading, currentTrackId, onPlay,
   onGoLibrary, onGoPlaylists, onOpenPlaylist, onGoCreate, onNewPlaylist,
 }: HomeProps) {
-  const { used = 153, total = 1000, remaining = 847 } = credits;
-  const pct = (used / total) * 100;
+  const { used, total, remaining } = credits;
+  const hasCredits = !isCreditsLoading && used !== null && total !== null && remaining !== null;
+  const pct = hasCredits && total > 0 ? (used / total) * 100 : 0;
 
   const recent = tracks
     .slice()
@@ -29,7 +33,7 @@ export function Home({
     .slice(0, 5);
 
   const firstFour = playlists.slice(0, 4);
-  const isEmpty = tracks.length === 0 && playlists.length === 0;
+  const isEmpty = !isDataLoading && tracks.length === 0 && playlists.length === 0;
 
   return (
     <div>
@@ -42,10 +46,17 @@ export function Home({
       {isEmpty && (
         <div className="section">
           <div className="home-onboard">
-            <div className="home-onboard-ic mono">◐</div>
+            <div className="home-onboard-ic mono" aria-hidden>
+              <CircleDot size={16} />
+            </div>
             <div className="home-onboard-title">No tracks yet</div>
             <div className="home-onboard-sub">Head to Create to make your first piece of music.</div>
-            <button type="button" className="btn primary" onClick={onGoCreate}>+ Start creating</button>
+            <button type="button" className="btn primary" onClick={onGoCreate}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Plus size={14} />
+                Start creating
+              </span>
+            </button>
           </div>
         </div>
       )}
@@ -58,11 +69,11 @@ export function Home({
         <div className="credits-card">
           <div className="credits-main">
             <div className="credits-figure">
-              <span className="credits-remaining tnum">{remaining.toLocaleString()}</span>
+              <span className="credits-remaining tnum">{hasCredits ? remaining.toLocaleString() : '--'}</span>
               <span className="credits-sep">/</span>
-              <span className="credits-total tnum">{total.toLocaleString()}</span>
+              <span className="credits-total tnum">{hasCredits ? total.toLocaleString() : '--'}</span>
             </div>
-            <div className="credits-pct mono">{pct.toFixed(1)}% used</div>
+            <div className="credits-pct mono">{hasCredits ? `${pct.toFixed(1)}% used` : 'LOADING'}</div>
           </div>
           <div className="credits-bar">
             <div className="credits-bar-fill" style={{ width: `${pct}%` }} />
@@ -71,12 +82,12 @@ export function Home({
             <div className="credits-legend-item">
               <span className="credits-legend-dot used" />
               <span className="mono uc">Used</span>
-              <span className="tnum credits-legend-val">{used.toLocaleString()}</span>
+              <span className="tnum credits-legend-val">{hasCredits ? used.toLocaleString() : '--'}</span>
             </div>
             <div className="credits-legend-item">
               <span className="credits-legend-dot remain" />
               <span className="mono uc">Remaining</span>
-              <span className="tnum credits-legend-val">{remaining.toLocaleString()}</span>
+              <span className="tnum credits-legend-val">{hasCredits ? remaining.toLocaleString() : '--'}</span>
             </div>
           </div>
         </div>
@@ -86,18 +97,53 @@ export function Home({
       <div className="section">
         <div className="home-sec-head">
           <div className="h-eyebrow">Recently Generated</div>
-          {recent.length > 0 && (
+          {(isDataLoading || recent.length > 0) && (
             <button type="button" className="home-see-all" onClick={onGoLibrary}>
-              See all <span aria-hidden>→</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                See all <ArrowRight size={13} aria-hidden />
+              </span>
             </button>
           )}
         </div>
 
-        {recent.length === 0 ? (
+        {isDataLoading ? (
+          <div className="home-recent">
+            <div className="track-list">
+              <div className="track-header home-recent-header">
+                <span>#</span>
+                <span />
+                <span>Title · Tags</span>
+                <span>Model</span>
+                <span>Mode · Prompt</span>
+                <span style={{ textAlign: 'right' }}>Duration</span>
+                <span />
+              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={`sk_recent_${i}`} className="track home-recent-row">
+                  <div className="num tnum">{String(i + 1).padStart(2, '0')}</div>
+                  <div className="cover skeleton-thumb" />
+                  <div className="title-block">
+                    <div className="skeleton-row-line w-lg" />
+                    <div className="skeleton-row-line w-md" />
+                  </div>
+                  <div className="skeleton-row-line w-sm" />
+                  <div className="skeleton-row-line w-sm" />
+                  <div className="dur tnum"><span className="skeleton-line xs" /></div>
+                  <div className="play-ic skeleton-circle" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : recent.length === 0 ? (
           <div className="home-empty">
             <div className="home-empty-title">No tracks yet</div>
             <div className="home-empty-sub">Start from Create to generate your first track.</div>
-            <button type="button" className="btn" onClick={onGoCreate}>+ Go to Create</button>
+            <button type="button" className="btn" onClick={onGoCreate}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Plus size={14} />
+                Go to Create
+              </span>
+            </button>
           </div>
         ) : (
           <div className="home-recent">
@@ -123,7 +169,10 @@ export function Home({
                     <div className="title">
                       {t.title}
                       {t.id === currentTrackId && (
-                        <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10 }}>▶ NOW</span>
+                        <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Play size={10} fill="currentColor" strokeWidth={1.8} />
+                          NOW
+                        </span>
                       )}
                     </div>
                     <div className="sub">{t.tags}</div>
@@ -139,7 +188,7 @@ export function Home({
                     title="Play"
                     onClick={e => { e.stopPropagation(); onPlay(t); }}
                   >
-                    ▶
+                    <Play size={14} fill="currentColor" strokeWidth={1.8} />
                   </button>
                 </div>
               ))}
@@ -152,18 +201,37 @@ export function Home({
       <div className="section" style={{ borderBottom: 'none' }}>
         <div className="home-sec-head">
           <div className="h-eyebrow">Playlists</div>
-          {playlists.length > 0 && (
+          {(isDataLoading || playlists.length > 0) && (
             <button type="button" className="home-see-all" onClick={onGoPlaylists}>
-              See all <span aria-hidden>→</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                See all <ArrowRight size={13} aria-hidden />
+              </span>
             </button>
           )}
         </div>
 
-        {playlists.length === 0 ? (
+        {isDataLoading ? (
+          <div className="home-pl-grid home-pl-grid-loading">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={`sk_pl_${i}`} className="pl-card">
+                <div className="pl-cover skeleton-block" />
+                <div className="pl-meta">
+                  <div className="skeleton-row-line w-lg" />
+                  <div className="skeleton-row-line w-sm" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : playlists.length === 0 ? (
           <div className="home-empty">
             <div className="home-empty-title">No playlists yet</div>
             <div className="home-empty-sub">Organize your tracks into collections.</div>
-            <button type="button" className="btn" onClick={onNewPlaylist}>+ Create Playlist</button>
+            <button type="button" className="btn" onClick={onNewPlaylist}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Plus size={14} />
+                Create Playlist
+              </span>
+            </button>
           </div>
         ) : (
           <div className="home-pl-grid">

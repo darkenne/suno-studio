@@ -1,5 +1,6 @@
 'use client';
 import type { RepeatMode, Track } from '@/types';
+import { Download, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { formatTime } from '@/lib/utils';
 import s from './Shell.module.css';
@@ -46,7 +47,6 @@ export function Player({
   const accentOn  = { color: 'var(--accent)' } as const;
   const mutedOff  = { color: 'var(--fg-3)' } as const;
 
-  const repeatLabel = repeat === 'one' ? '↻¹' : '↻';
   const repeatStyle = repeat !== 'off' ? accentOn : mutedOff;
 
   return (
@@ -71,20 +71,20 @@ export function Player({
             style={shuffle ? accentOn : mutedOff}
             onClick={onShuffleToggle}
           >
-            ⇄
+            <Shuffle size={14} />
           </button>
-          <button type="button" title="Previous" onClick={onPrev}>⏮</button>
+          <button type="button" title="Previous" onClick={onPrev}><SkipBack size={14} /></button>
           <button className={s.playerPlayBtn} type="button" onClick={onPlayPause} title={isPlaying ? 'Pause' : 'Play'}>
-            <span style={{ fontSize: 11 }}>{isPlaying ? '❚❚' : '▶'}</span>
+            <span style={{ display: 'inline-flex' }}>{isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" strokeWidth={1.8} />}</span>
           </button>
-          <button type="button" title="Next" onClick={onNext}>⏭</button>
+          <button type="button" title="Next" onClick={onNext}><SkipForward size={14} /></button>
           <button
             type="button"
             title={repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat all' : 'Repeat one'}
             style={repeatStyle}
             onClick={onRepeatToggle}
           >
-            {repeatLabel}
+            {repeat === 'one' ? <Repeat1 size={14} /> : <Repeat size={14} />}
           </button>
         </div>
 
@@ -122,14 +122,20 @@ export function Player({
             style={{ fontSize: 10, color: 'var(--fg-2)', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}
             title="Download WAV"
           >
-            ↓ WAV
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Download size={12} />
+              WAV
+            </span>
           </a>
         ) : (
           <span
             className="mono"
             style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}
           >
-            ↓ WAV
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Download size={12} />
+              WAV
+            </span>
           </span>
         )}
 

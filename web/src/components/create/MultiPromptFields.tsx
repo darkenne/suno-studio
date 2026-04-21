@@ -1,4 +1,5 @@
 'use client';
+import { Plus, X } from 'lucide-react';
 import type { PromptEntry } from '@/types';
 
 interface Props {
@@ -57,13 +58,18 @@ export function MultiPromptFields({ prompts, onAdd, onRemove, onUpdate, count, i
                 />
               </div>
             </div>
-            <button className="del" onClick={() => onRemove(p.id)} title="Remove">×</button>
+            <button className="del" onClick={() => onRemove(p.id)} title="Remove"><X size={12} /></button>
           </div>
         ))}
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <button type="button" className="btn sm" onClick={onAdd}>+ Add Prompt</button>
+        <button type="button" className="btn sm" onClick={onAdd}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={13} />
+            Add Prompt
+          </span>
+        </button>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import type { Playlist, Track } from '@/types';
+import { ArrowLeft, GripVertical, MoreHorizontal, Play, Plus, Shuffle, X } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { Menu, MenuItem, MenuSep } from '@/components/ui/Menu';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -48,9 +49,7 @@ export function PlaylistTitleModal({ open, initialTitle, mode = 'create', onCanc
             <h2 className="dlg-title">{mode === 'create' ? 'Name your playlist' : 'Rename playlist'}</h2>
           </div>
           <button className="dlg-x" onClick={onCancel} aria-label="Close">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <X size={14} />
           </button>
         </div>
         <div className="dlg-body">
@@ -109,13 +108,11 @@ export function PlaylistsPage({ playlists, tracks, onOpen, onCreate, onDelete }:
           {/* Create card */}
           <button type="button" className="pl-card new" onClick={onCreate}>
             <div className="pl-cover-new">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <path d="M14 6v16M6 14h16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              </svg>
+              <Plus size={28} />
             </div>
             <div className="pl-meta">
               <div className="pl-title">Create Playlist</div>
-              <div className="pl-sub mono">+ NEW</div>
+              <div className="pl-sub mono">NEW</div>
             </div>
           </button>
 
@@ -143,7 +140,7 @@ export function PlaylistsPage({ playlists, tracks, onOpen, onCreate, onDelete }:
                     }}
                     title="More"
                   >
-                    ···
+                    <MoreHorizontal size={16} />
                   </button>
                 </div>
               </div>
@@ -252,7 +249,10 @@ export function PlaylistDetailPage({
     <div>
       <div className="section no-underline" style={{ paddingBottom: 20 }}>
         <button type="button" className="btn sm ghost" onClick={onBack} style={{ marginBottom: 16 }}>
-          ← All playlists
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ArrowLeft size={14} />
+            All playlists
+          </span>
         </button>
 
         <div className="pl-detail-head">
@@ -317,7 +317,10 @@ export function PlaylistDetailPage({
                 onClick={() => onPlayPlaylist(playlist.id, false)}
                 disabled={list.length === 0}
               >
-                ▶ Play
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Play size={13} strokeWidth={2} aria-hidden="true" />
+                  Play
+                </span>
               </button>
               <button
                 type="button"
@@ -325,7 +328,10 @@ export function PlaylistDetailPage({
                 onClick={() => onPlayPlaylist(playlist.id, true)}
                 disabled={list.length === 0}
               >
-                ⇄ Shuffle
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Shuffle size={13} strokeWidth={2} aria-hidden="true" />
+                  Shuffle
+                </span>
               </button>
               <button
                 type="button"
@@ -336,7 +342,7 @@ export function PlaylistDetailPage({
                 }}
                 title="More"
               >
-                ⋯
+                <MoreHorizontal size={16} />
               </button>
             </div>
           </div>
@@ -375,14 +381,17 @@ export function PlaylistDetailPage({
                 onDragOver={e => { e.preventDefault(); setOverId(t.id); }}
                 onClick={() => onPlayTrack(t, playlist.id)}
               >
-                <div className="drag-handle" title="Drag to reorder">⠿</div>
+                <div className="drag-handle" title="Drag to reorder"><GripVertical size={14} /></div>
                 <div className="num tnum">{String(i + 1).padStart(2, '0')}</div>
                 <div className="cover"><Cover track={t} size={44} /></div>
                 <div className="title-block">
                   <div className="title">
                     {t.title}
                     {t.id === currentTrackId && (
-                      <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10 }}>▶ NOW</span>
+                      <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Play size={10} fill="currentColor" strokeWidth={1.8} />
+                        NOW
+                      </span>
                     )}
                   </div>
                   <div className="sub">{t.tags}</div>
@@ -402,14 +411,14 @@ export function PlaylistDetailPage({
                   }}
                   title="More"
                 >
-                  ⋯
+                  <MoreHorizontal size={16} />
                 </button>
               </div>
             ))}
             {list.length === 0 && (
               <div className="empty">
                 No tracks yet.<br />
-                Add from the Library via the ··· menu or multi-select.
+                Add from the Library via the menu button or multi-select.
               </div>
             )}
           </div>

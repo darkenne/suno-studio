@@ -5,7 +5,7 @@
   grid-template-columns: 36px 48px 56px 1fr 140px 110px 90px 36px 36px;
   gap: 12px;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px 22px;
   border-bottom: 1px solid var(--line);
   transition: background .1s;
   cursor: pointer;
@@ -60,8 +60,8 @@
 /* Toolbar */
 .toolbar {
   display: flex; gap: 12px; align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--line); background: var(--bg-1);
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--line); background: var(--bg);
   position: sticky; top: 0; z-index: 3;
 }
 .search { flex: 1; max-width: 380px; position: relative; }

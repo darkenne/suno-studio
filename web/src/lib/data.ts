@@ -36,13 +36,7 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'V4', label: 'V4 — legacy, cheapest' },
 ];
 
-export const SIMPLE_MODELS: ModelOption[] = [
-  { value: 'V4_5ALL', label: 'V4.5 ALL · Default' },
-  { value: 'V4_5', label: 'V4.5' },
-  { value: 'V4_5PLUS', label: 'V4.5 PLUS' },
-  { value: 'V5', label: 'V5' },
-  { value: 'V4', label: 'V4' },
-];
+export const SIMPLE_MODELS: ModelOption[] = MODEL_OPTIONS;
 
 export const SIMPLE_INSPIRATION = [
   'Danceable beat', 'Ambient trance', 'Heartfelt delivery', 'Feel-good',

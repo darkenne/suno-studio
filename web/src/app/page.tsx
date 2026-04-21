@@ -1,7 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, Playlist, PlaylistTrack, RepeatMode, Track, View } from '@/types';
-import { MOCK_TRACKS, seedPlaylists } from '@/lib/data';
 import { ConfirmProvider } from '@/hooks/useConfirm';
 import { useBatch } from '@/hooks/useBatch';
 import { useToasts } from '@/hooks/useToasts';
@@ -19,16 +18,23 @@ import { PlaylistsPage, PlaylistDetailPage, PlaylistTitleModal } from '@/compone
 import { Toasts } from '@/components/ui/Toasts';
 import s from '@/components/shell/Shell.module.css';
 
-const STORAGE_KEY       = 'suno_tracks';
-const PLAYLISTS_KEY     = 'suno_playlists';
+const WORKSPACE_KEY     = 'suno_workspace_id';
+const BASE_CREDITS_TOTAL = 1050;
+const CREDITS_TOTAL_KEY_PREFIX = 'suno_total_credited';
+
+type CreditsState = {
+  used: number | null;
+  total: number | null;
+  remaining: number | null;
+};
 
 function Studio() {
   const [view, setView]                     = useState<View>('home');
   const [createMode, setCreateMode]         = useState<CreateMode>('simple');
-  const [tracks, setTracks]                 = useState<Track[]>(MOCK_TRACKS);
-  const [playlists, setPlaylists]           = useState<Playlist[]>(() => seedPlaylists(MOCK_TRACKS));
+  const [tracks, setTracks]                 = useState<Track[]>([]);
+  const [playlists, setPlaylists]           = useState<Playlist[]>([]);
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
-  const [currentTrack, setCurrentTrack]     = useState<Track | null>(MOCK_TRACKS[0] ?? null);
+  const [currentTrack, setCurrentTrack]     = useState<Track | null>(null);
   const [isPlaying, setIsPlaying]           = useState(false);
   const [playhead, setPlayhead]             = useState(0);
   const [tweaksOpen, setTweaksOpen]         = useState(false);
@@ -38,6 +44,17 @@ function Studio() {
   const [shuffle, setShuffle]               = useState(false);
   const [volume, setVolume]                 = useState(0.8);
   const [hydrated, setHydrated]             = useState(false);
+  const [workspaceId, setWorkspaceId]       = useState<string | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(true);
+  const [creditedTotal, setCreditedTotal]   = useState<number>(BASE_CREDITS_TOTAL);
+  const [lastRemaining, setLastRemaining]   = useState<number | null>(null);
+  const creditedTotalRef                    = useRef<number>(BASE_CREDITS_TOTAL);
+  const lastRemainingRef                    = useRef<number | null>(null);
+  const [credits, setCredits]               = useState<CreditsState>({
+    used: null,
+    total: null,
+    remaining: null,
+  });
 
   /* Playlist modal */
   const [plModalOpen, setPlModalOpen]       = useState(false);
@@ -52,39 +69,118 @@ function Studio() {
   const { jobs, batchTotal, batchTracks, isComplete, startBatch, cancelBatch } = useBatch();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* ── Load persisted state ─────────────────────────── */
+  /* ── Resolve workspace id ─────────────────────────── */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Track[];
-        if (parsed.length > 0) {
-          setTracks(parsed);
-          setCurrentTrack(parsed[0] ?? null);
-          setPlaylists(seedPlaylists(parsed));
-        }
+      const existing = localStorage.getItem(WORKSPACE_KEY);
+      if (existing) {
+        setWorkspaceId(existing);
+        return;
       }
-    } catch {}
-    try {
-      const rawPl = localStorage.getItem(PLAYLISTS_KEY);
-      if (rawPl) {
-        const parsed = JSON.parse(rawPl) as Playlist[];
-        if (parsed.length > 0) setPlaylists(parsed);
-      }
-    } catch {}
-    setHydrated(true);
+      const id = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `ws_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(WORKSPACE_KEY, id);
+      setWorkspaceId(id);
+    } catch {
+      setWorkspaceId('default-workspace');
+    }
   }, []);
 
-  /* ── Persist ──────────────────────────────────────── */
+  /* ── Load snapshot from Supabase ─────────────────── */
   useEffect(() => {
-    if (!hydrated) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks)); } catch {}
-  }, [tracks, hydrated]);
+    if (!workspaceId) return;
+    let mounted = true;
+    const controller = new AbortController();
+
+    const loadSnapshot = async () => {
+      try {
+        const res = await fetch(`/api/storage/snapshot?workspaceId=${encodeURIComponent(workspaceId)}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const payload = await res.json();
+        const remoteTracks = payload?.data?.tracks;
+        const remotePlaylists = payload?.data?.playlists;
+        if (!mounted) return;
+        if (Array.isArray(remoteTracks)) {
+          setTracks(remoteTracks as Track[]);
+          setCurrentTrack((remoteTracks as Track[])[0] ?? null);
+          if (Array.isArray(remotePlaylists) && remotePlaylists.length > 0) {
+            setPlaylists(remotePlaylists as Playlist[]);
+          } else {
+            setPlaylists([]);
+          }
+        }
+      } catch {
+        // keep local in-memory defaults
+      } finally {
+        if (mounted) setHydrated(true);
+      }
+    };
+
+    loadSnapshot();
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, [workspaceId]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    try { localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists)); } catch {}
-  }, [playlists, hydrated]);
+    creditedTotalRef.current = creditedTotal;
+  }, [creditedTotal]);
+
+  useEffect(() => {
+    lastRemainingRef.current = lastRemaining;
+  }, [lastRemaining]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    try {
+      const raw = localStorage.getItem(`${CREDITS_TOTAL_KEY_PREFIX}_${workspaceId}`);
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed >= BASE_CREDITS_TOTAL) {
+        setCreditedTotal(parsed);
+        return;
+      }
+    } catch {
+      // ignore read failure
+    }
+    setCreditedTotal(BASE_CREDITS_TOTAL);
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    try {
+      localStorage.setItem(`${CREDITS_TOTAL_KEY_PREFIX}_${workspaceId}`, String(creditedTotal));
+    } catch {
+      // ignore write failure
+    }
+  }, [workspaceId, creditedTotal]);
+
+  /* ── Persist snapshot to Supabase ────────────────── */
+  useEffect(() => {
+    if (!hydrated || !workspaceId) return;
+    const controller = new AbortController();
+    const id = setTimeout(async () => {
+      try {
+        await fetch('/api/storage/snapshot', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId, tracks, playlists }),
+          signal: controller.signal,
+        });
+      } catch {
+        // ignore transient save failures
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      clearTimeout(id);
+    };
+  }, [tracks, playlists, hydrated, workspaceId]);
 
   /* ── Audio ────────────────────────────────────────── */
   useEffect(() => {
@@ -166,6 +262,56 @@ function Studio() {
     };
     document.addEventListener('scroll', handler, true);
     return () => document.removeEventListener('scroll', handler, true);
+  }, []);
+
+  /* ── Credits ──────────────────────────────────────── */
+  useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
+
+    const fetchCredits = async () => {
+      try {
+        const res = await fetch('/api/generate/credit', {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const payload = await res.json();
+        const remaining = Number(payload?.data);
+        if (!Number.isFinite(remaining) || !mounted) return;
+
+        const prevTotal = creditedTotalRef.current;
+        const prevRemaining = lastRemainingRef.current;
+        let nextTotal = prevTotal;
+        if (prevRemaining === null) {
+          // First sample: keep configured base, but never lower than remaining.
+          nextTotal = Math.max(prevTotal, remaining);
+        } else if (remaining > prevRemaining) {
+          // Remaining increase implies recharge happened.
+          nextTotal = prevTotal + (remaining - prevRemaining);
+        }
+
+        setCreditedTotal(nextTotal);
+        setLastRemaining(remaining);
+        setCredits({
+          total: nextTotal,
+          remaining,
+          used: Math.max(nextTotal - remaining, 0),
+        });
+        setCreditsLoading(false);
+      } catch {
+        setCreditsLoading(false);
+      }
+    };
+
+    fetchCredits();
+    const id = setInterval(fetchCredits, 15_000);
+
+    return () => {
+      mounted = false;
+      controller.abort();
+      clearInterval(id);
+    };
   }, []);
 
   /* ── Playback helpers ────────────────────────────── */
@@ -250,6 +396,17 @@ function Studio() {
     pushToast('Track removed');
   };
 
+  const deleteTracks = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setTracks(ts => ts.filter(t => !idSet.has(t.id)));
+    setPlaylists(pls => pls.map(pl => ({
+      ...pl,
+      tracks: pl.tracks.filter(pt => !idSet.has(pt.trackId)),
+    })));
+    pushToast(`${ids.length} track${ids.length === 1 ? '' : 's'} deleted.`);
+  };
+
   const addToQueue = (trackId: string) => {
     setQueue(q => [...q, trackId]);
     const t = tracks.find(x => x.id === trackId);
@@ -327,7 +484,13 @@ function Studio() {
     pushToast(
       `Added to "${pl?.title ?? 'playlist'}"`,
       'ok',
-      { label: 'View', fn: () => openPlaylist(playlistId) },
+      {
+        label: 'View',
+        fn: () => {
+          setActivePlaylistId(playlistId);
+          setView('playlist-detail');
+        },
+      },
     );
   };
 
@@ -374,11 +537,16 @@ function Studio() {
 
   const noAside = view === 'playlists' || view === 'playlist-detail' || view === 'library';
 
-  const credits = { used: 153, total: 1000, remaining: 847 };
-
   return (
     <div className={`${s.app}${noAside ? ` ${s.noAside}` : ''}`}>
-      <TopBar batchJobs={jobs} batchTotal={batchTotal} savedCount={batchTracks.length} />
+      <TopBar
+        batchJobs={jobs}
+        batchTotal={batchTotal}
+        savedCount={batchTracks.length}
+        remainingCredits={credits.remaining}
+        totalCredits={credits.total}
+        isCreditsLoading={creditsLoading}
+      />
 
       <Nav
         view={view}
@@ -398,6 +566,8 @@ function Studio() {
             tracks={tracks}
             playlists={playlists}
             credits={credits}
+            isCreditsLoading={creditsLoading}
+            isDataLoading={!hydrated}
             currentTrackId={currentTrack?.id}
             onPlay={playTrack}
             onGoLibrary={() => setView('library')}
@@ -433,6 +603,7 @@ function Studio() {
             onPlay={playTrack}
             onToggleFav={toggleFav}
             onDelete={deleteTrack}
+            onDeleteMany={deleteTracks}
             onAddToPlaylist={addToPlaylist}
             onAddToQueue={addToQueue}
             onNewPlaylistWithTracks={handleNewPlaylistWithTracks}

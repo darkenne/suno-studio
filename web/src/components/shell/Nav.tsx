@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { ChevronDown, Plus, Radio } from 'lucide-react';
 import type { Playlist, View } from '@/types';
 import s from './Shell.module.css';
 
@@ -58,9 +59,7 @@ export function Nav({
           role="button"
           aria-label="Toggle playlists"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronDown size={10} />
         </span>
       </button>
 
@@ -78,7 +77,7 @@ export function Nav({
             </button>
           ))}
           <button className="nav-child add" onClick={onNewPlaylist}>
-            <span className="nav-child-dot">+</span>
+            <span className="nav-child-dot"><Plus size={10} /></span>
             <span className="nav-child-label">New Playlist</span>
           </button>
         </div>
@@ -87,7 +86,7 @@ export function Nav({
       <div className={s.navFoot}>
         v0.4.2 · Suno V5.5<br />
         Next.js 14 · SQLite<br />
-        <span style={{ color: 'var(--accent)' }}>●</span> sunoapi.org
+        <span style={{ color: 'var(--accent)', display: 'inline-flex', verticalAlign: 'middle' }}><Radio size={10} /></span> sunoapi.org
       </div>
     </nav>
   );

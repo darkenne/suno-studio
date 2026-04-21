@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import type { BatchJob, Track } from '@/types';
+import { ArrowRight, Check, X } from 'lucide-react';
 import { useConfirm } from '@/hooks/useConfirm';
 
 interface GenerationViewProps {
@@ -93,7 +94,13 @@ export function GenerationView({ jobs, allTracks, totalCount, onCancel, onDone }
 
       <div className="section" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         {!isComplete && <button type="button" className="btn" onClick={doCancel}>Stop Run</button>}
-        {isComplete && <button type="button" className="btn primary" onClick={onDone}>View in Library →</button>}
+        {isComplete && (
+          <button type="button" className="btn primary" onClick={onDone}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              View in Library <ArrowRight size={13} />
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -132,7 +139,11 @@ function JobRow({ job, index }: { job: BatchJob; index: number }) {
       </div>
       <div className="stage">{stageMap[job.status] ?? job.status}</div>
       <div className="timer tnum">
-        {job.status === 'SUCCESS' ? `✓ ${elapsed}s` : job.status === 'FAILED' ? `✕ ${elapsed}s` : `${elapsed}s`}
+        {job.status === 'SUCCESS' ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={12} />{elapsed}s</span>
+        ) : job.status === 'FAILED' ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><X size={12} />{elapsed}s</span>
+        ) : `${elapsed}s`}
       </div>
     </div>
   );

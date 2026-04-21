@@ -6,11 +6,16 @@ interface TopBarProps {
   batchJobs: BatchJob[];
   batchTotal: number;
   savedCount: number;
+  remainingCredits: number | null;
+  totalCredits: number | null;
+  isCreditsLoading: boolean;
 }
 
-export function TopBar({ batchJobs, batchTotal, savedCount }: TopBarProps) {
+export function TopBar({ batchJobs, batchTotal, savedCount, remainingCredits, totalCredits, isCreditsLoading }: TopBarProps) {
   const running = batchJobs.filter(j => j.status !== 'SUCCESS' && j.status !== 'FAILED').length;
   const isGenerating = running > 0;
+  const remainingLabel = isCreditsLoading || remainingCredits === null ? '--' : remainingCredits.toLocaleString();
+  const totalLabel = isCreditsLoading || totalCredits === null ? '--' : totalCredits.toLocaleString();
 
   return (
     <div className={s.topbar}>
@@ -20,9 +25,6 @@ export function TopBar({ batchJobs, batchTotal, savedCount }: TopBarProps) {
           <span>
             REEL
           </span>
-        </div>
-        <div className="mono" style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Workspace · <span style={{ color: 'var(--fg-1)' }}>Untitled Session</span>
         </div>
       </div>
 
@@ -42,7 +44,7 @@ export function TopBar({ batchJobs, batchTotal, savedCount }: TopBarProps) {
           <span className={s.dot} />CONNECTED
         </span>
         <span>
-          CREDITS <span className="tnum" style={{ color: 'var(--fg-1)', margin: '0 4px' }}>847</span> / 1000
+          CREDITS <span className="tnum" style={{ color: 'var(--fg-1)', margin: '0 4px' }}>{remainingLabel}</span> / {totalLabel}
         </span>
       </div>
     </div>

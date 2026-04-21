@@ -12,22 +12,20 @@ import { INSPIRATION_TAGS, MODEL_OPTIONS } from '@/lib/data';
 function defaultValues(): AdvancedFormValues {
   return {
     promptMode: 'single',
-    title: 'Lantern Fields at 3AM',
-    style: 'lo-fi, late-night drive, pressed tape cassette vibes, warm pads, Rhodes, vinyl crackle, 72 bpm',
-    lyrics: '[Verse 1]\nMoths around a streetlamp\nSoft rain on the hood\nRadio static, fading\nI\'d come back if I could\n\n[Chorus]\nLantern fields at three AM\nEverything is half-asleep\nI am nothing but the quiet\nAnd the promises I keep',
+    title: '',
+    style: '',
+    lyrics: '',
     prompts: [
-      { id: 'p1', title: 'Opening Track', style: 'ambient, soft drone, no drums', lyrics: '' },
-      { id: 'p2', title: 'Middle Cut', style: 'lo-fi chillhop, 82 bpm, Rhodes', lyrics: '' },
-      { id: 'p3', title: 'Closing Piece', style: 'post-rock, slow crescendo, tremolo guitars', lyrics: '' },
+      { id: 'p1', title: '', style: '', lyrics: '' },
     ],
     vocalType: 'vocal',
     vocalGender: 'f',
-    negativeTags: 'no screaming, no autotune',
+    negativeTags: '',
     weirdness: 42,
     styleInfluence: 65,
     count: 6,
     model: 'V5_5',
-    inspirationTags: ['lo-fi', 'warm pads', 'vinyl crackle'],
+    inspirationTags: [],
   };
 }
 

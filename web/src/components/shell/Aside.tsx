@@ -1,5 +1,6 @@
 'use client';
 import type { View, Track, BatchJob } from '@/types';
+import { ArrowRight, Check, Play } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { Waveform } from '@/components/ui/Waveform';
 import { formatTime, relTime, hashSimple } from '@/lib/utils';
@@ -59,7 +60,7 @@ export function Aside({
             <div className="saved-feed">
               {savedFeed.map(t => (
                 <div key={`feed_${t.id}`} className="saved-feed-line mono">
-                  <span style={{ color: 'var(--accent)', marginRight: 6 }}>✓</span>
+                  <span style={{ color: 'var(--accent)', marginRight: 6, display: 'inline-flex' }}><Check size={12} /></span>
                   <span style={{ color: 'var(--fg-1)' }}>&quot;{t.title}&quot;</span>
                   <span style={{ color: 'var(--fg-3)' }}> saved to library</span>
                 </div>
@@ -95,7 +96,7 @@ export function Aside({
                 <div className="rc-title">{t.title}</div>
                 <div className="rc-sub">{t.model} · {formatTime(t.duration)} · saved</div>
               </div>
-              <div className="rc-play">▶</div>
+              <div className="rc-play"><Play size={14} fill="currentColor" strokeWidth={1.8} /></div>
             </div>
           ))}
         </div>
@@ -111,7 +112,9 @@ export function Aside({
           <div className="mono" style={{ fontSize: 11, color: 'var(--fg-2)' }}>Last 24 hours</div>
         </div>
         <button className="aside-see-all" onClick={onGoLibrary}>
-          See all →
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            See all <ArrowRight size={13} />
+          </span>
         </button>
       </div>
       <div className={`${s.asideBody} scroll`}>
@@ -127,7 +130,7 @@ export function Aside({
               <div className="rc-title">{t.title}</div>
               <div className="rc-sub">{t.model} · {formatTime(t.duration)} · {relTime(t.createdAt)}</div>
             </div>
-            <div className="rc-play">▶</div>
+            <div className="rc-play"><Play size={14} fill="currentColor" strokeWidth={1.8} /></div>
           </div>
         ))}
       </div>

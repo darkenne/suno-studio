@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Dice5, Plus, X } from 'lucide-react';
 import type { AdvancedFormValues, CreateMode, SimplePromptEntry } from '@/types';
 import { Seg } from '@/components/ui/Seg';
 import { Select } from '@/components/ui/Select';
@@ -21,7 +22,7 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
   const [vocalType, setVocalType] = useState<'vocal' | 'instrumental'>('vocal');
   const [tags, setTags] = useState<string[]>([]);
   const [count, setCount] = useState(4);
-  const [model, setModel] = useState('V4_5ALL');
+  const [model, setModel] = useState('V5_5');
 
   const apiCalls = Math.ceil(count / 2);
   const credits = apiCalls * 12;
@@ -132,7 +133,12 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
               onChange={e => setDescription(e.target.value)}
             />
             <div style={{ marginTop: 10 }}>
-              <button type="button" className="btn sm" onClick={pickRandom}>⚂ Insert random example</button>
+              <button type="button" className="btn sm" onClick={pickRandom}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Dice5 size={13} />
+                  Insert random example
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -163,12 +169,17 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
                   onClick={() => removePrompt(p.id)}
                   disabled={prompts.length <= 1}
                   style={{ opacity: prompts.length <= 1 ? 0.3 : 1 }}
-                >×</button>
+                ><X size={12} /></button>
               </div>
             ))}
           </div>
           <div style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button type="button" className="btn sm" onClick={addPrompt} disabled={prompts.length >= 10}>+ Add prompt</button>
+            <button type="button" className="btn sm" onClick={addPrompt} disabled={prompts.length >= 10}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} />
+                Add prompt
+              </span>
+            </button>
             <span className="hint">Max 10</span>
           </div>
         </div>

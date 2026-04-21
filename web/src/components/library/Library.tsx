@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import type { Playlist, Track } from '@/types';
+import { Check, ChevronRight, ListChecks, MoreHorizontal, Play, Plus, Search, Star, Trash2 } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { Seg } from '@/components/ui/Seg';
 import { Menu, MenuItem, MenuSep, MenuHeading } from '@/components/ui/Menu';
@@ -15,13 +16,14 @@ interface LibraryProps {
   onPlay: (t: Track) => void;
   onToggleFav: (id: string) => void;
   onDelete: (id: string) => void;
+  onDeleteMany: (ids: string[]) => void;
   onAddToPlaylist: (playlistId: string, trackIds: string[]) => void;
   onAddToQueue: (trackId: string) => void;
   onNewPlaylistWithTracks: (trackIds: string[]) => void;
 }
 
 export function Library({
-  tracks, playlists, currentTrackId, onPlay, onToggleFav, onDelete,
+  tracks, playlists, currentTrackId, onPlay, onToggleFav, onDelete, onDeleteMany,
   onAddToPlaylist, onAddToQueue, onNewPlaylistWithTracks,
 }: LibraryProps) {
   const confirm = useConfirm();
@@ -69,6 +71,21 @@ export function Library({
   const clearSelection = () => setSelected(new Set());
   const selectedArr = Array.from(selected);
 
+  const deleteSelectedTracks = async () => {
+    if (selectedArr.length === 0) return;
+    const ok = await confirm({
+      eyebrow: 'Library',
+      title: `Delete ${selectedArr.length} selected track${selectedArr.length === 1 ? '' : 's'}?`,
+      body: 'This removes the selected tracks from your library. The generated audio cannot be recovered.',
+      confirmLabel: 'Delete tracks',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    onDeleteMany(selectedArr);
+    clearSelection();
+  };
+
   return (
     <div>
       <div className="section no-underline" style={{ paddingBottom: 16 }}>
@@ -92,10 +109,7 @@ export function Library({
       <div className={s.toolbar}>
         <div className={s.search}>
           <span className={s.searchIcon} aria-hidden>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M9 9l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <Search size={14} />
           </span>
           <input
             className={s.searchInput}
@@ -110,7 +124,10 @@ export function Library({
           onChange={setMode}
         />
         <button type="button" className={`btn sm${favOnly ? ' primary' : ''}`} onClick={() => setFavOnly(v => !v)}>
-          ★ Favorites Only
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Star size={13} fill={favOnly ? 'currentColor' : 'none'} />
+            Favorites Only
+          </span>
         </button>
         <div style={{ flex: 1 }} />
         <Seg
@@ -152,9 +169,7 @@ export function Library({
                 onChange={() => toggleSelect(t.id)}
               />
               <span className="chk" aria-hidden>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 5l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <Check size={10} />
               </span>
             </label>
             <div className={s.num}>{String(i + 1).padStart(2, '0')}</div>
@@ -163,7 +178,10 @@ export function Library({
               <div className={s.title}>
                 {t.title}
                 {t.id === currentTrackId && (
-                  <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10 }}>▶ NOW</span>
+                  <span style={{ color: 'var(--accent)', marginLeft: 8, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Play size={10} fill="currentColor" strokeWidth={1.8} />
+                    NOW
+                  </span>
                 )}
               </div>
               <div className={s.sub}>{t.tags}</div>
@@ -184,7 +202,7 @@ export function Library({
               onClick={e => { e.stopPropagation(); onToggleFav(t.id); }}
               title={t.isFavorite ? 'Unfavorite' : 'Favorite'}
             >
-              {t.isFavorite ? '★' : '☆'}
+              <Star size={14} fill={t.isFavorite ? 'currentColor' : 'none'} />
             </button>
             <button
               type="button"
@@ -197,7 +215,7 @@ export function Library({
               }}
               title="More"
             >
-              ⋯
+              <MoreHorizontal size={16} />
             </button>
           </div>
         ))}
@@ -214,7 +232,10 @@ export function Library({
         <div className="multi-bar">
           <div className="multi-bar-inner">
             <div className="mono uc" style={{ fontSize: 11, color: 'var(--accent)', letterSpacing: '0.12em' }}>
-              ● {selected.size} SELECTED
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ListChecks size={13} />
+                {selected.size} SELECTED
+              </span>
             </div>
             <div style={{ flex: 1 }} />
             <button
@@ -225,7 +246,16 @@ export function Library({
                 setBarMenuOpen(true);
               }}
             >
-              + Add to Playlist
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} />
+                Add to Playlist
+              </span>
+            </button>
+            <button type="button" className="btn sm ghost" onClick={deleteSelectedTracks}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Trash2 size={13} />
+                Delete Tracks
+              </span>
             </button>
             <button type="button" className="btn sm ghost" onClick={clearSelection}>Clear</button>
           </div>
@@ -244,7 +274,10 @@ export function Library({
               Add to Queue
             </MenuItem>
             <MenuItem onClick={() => setAddPlaylistFor(rowMenuFor)}>
-              Add to Playlist →
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                Add to Playlist
+                <ChevronRight size={14} />
+              </span>
             </MenuItem>
             <MenuSep />
             <MenuItem
@@ -291,7 +324,10 @@ export function Library({
                 setAddPlaylistFor(null);
               }}
             >
-              + New Playlist
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} />
+                New Playlist
+              </span>
             </MenuItem>
           </>
         )}
@@ -311,7 +347,10 @@ export function Library({
         ))}
         <MenuSep />
         <MenuItem onClick={() => { onNewPlaylistWithTracks(selectedArr); setBarMenuOpen(false); clearSelection(); }}>
-          + New Playlist
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={13} />
+            New Playlist
+          </span>
         </MenuItem>
       </Menu>
     </div>
