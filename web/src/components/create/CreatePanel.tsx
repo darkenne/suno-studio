@@ -129,7 +129,7 @@ export function CreatePanel({ onStartBatch, onSwitchMode }: CreatePanelProps) {
           <div className="field">
             <div className="label"><span>Vocal Type</span></div>
             <Seg
-              options={[{ value: 'vocal', label: 'With Vocals' }, { value: 'instrumental', label: 'Instrumental' }]}
+              options={[{ value: 'vocal', label: 'Vocal' }, { value: 'instrumental', label: 'Instrumental' }]}
               value={values.vocalType}
               onChange={v => set({ vocalType: v })}
             />
