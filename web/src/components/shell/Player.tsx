@@ -26,80 +26,83 @@ export function Player({
   onPrev, onNext, repeat, onRepeatToggle, shuffle, onShuffleToggle,
   volume, onVolumeChange,
 }: PlayerProps) {
-  if (!track) {
-    return (
-      <div className={s.player}>
-        <div />
-        <div className="empty">No track loaded</div>
-        <div />
-      </div>
-    );
-  }
-
-  const dur = track.duration || 1;
-  const pct = Math.min(100, (playhead / dur) * 100);
+  const empty = !track;
+  const dur = track?.duration || 1;
+  const pct = empty ? 0 : Math.min(100, (playhead / dur) * 100);
 
   const onBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (empty) return;
     const rect = e.currentTarget.getBoundingClientRect();
     onSeek(Math.max(0, Math.min(dur, (e.clientX - rect.left) / rect.width * dur)));
   };
 
   const accentOn  = { color: 'var(--accent)' } as const;
   const mutedOff  = { color: 'var(--fg-3)' } as const;
-
   const repeatStyle = repeat !== 'off' ? accentOn : mutedOff;
 
   return (
     <div className={s.player}>
       {/* ── Left: cover + track info ── */}
       <div className={s.playerLeft}>
-        <div style={{ width: 44, height: 44, borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
-          <Cover track={track} size={44} />
+        <div style={{ width: 44, height: 44, borderRadius: 2, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {!empty ? (
+            <Cover track={track} size={44} />
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ opacity: 0.22 }}>
+              <rect x="1" y="1" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+              <circle cx="6.5" cy="6.5" r="1.5" fill="currentColor"/>
+              <path d="M1 12l4-4 3 3 2.5-2.5L17 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
         </div>
         <div className={s.playerTrackInfo}>
-          <div className={s.playerTitle}>{track.title}</div>
-          <div className={s.playerSub}>{track.tags.split(',')[0]?.trim()} · {track.model}</div>
+          <div className={s.playerTitle} style={empty ? { color: 'var(--fg-3)' } : undefined}>
+            {empty ? 'No track loaded' : track.title}
+          </div>
+          {!empty && (
+            <div className={s.playerSub}>{track.tags.split(',')[0]?.trim()} · {track.model}</div>
+          )}
         </div>
       </div>
 
       {/* ── Center: controls + progress ── */}
       <div className={s.playerCenter}>
-        <div className={s.playerControls}>
+        <div className={s.playerControls} style={empty ? { opacity: 0.35 } : undefined}>
           <button
             type="button"
             title={shuffle ? 'Shuffle on' : 'Shuffle off'}
-            style={shuffle ? accentOn : mutedOff}
-            onClick={onShuffleToggle}
+            style={!empty && shuffle ? accentOn : mutedOff}
+            onClick={!empty ? onShuffleToggle : undefined}
           >
             <Shuffle size={14} />
           </button>
-          <button type="button" title="Previous" onClick={onPrev}><SkipBack size={14} /></button>
-          <button className={s.playerPlayBtn} type="button" onClick={onPlayPause} title={isPlaying ? 'Pause' : 'Play'}>
+          <button type="button" title="Previous" onClick={!empty ? onPrev : undefined}><SkipBack size={14} /></button>
+          <button className={s.playerPlayBtn} type="button" onClick={!empty ? onPlayPause : undefined} title={isPlaying ? 'Pause' : 'Play'}>
             <span style={{ display: 'inline-flex' }}>{isPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" strokeWidth={1.8} />}</span>
           </button>
-          <button type="button" title="Next" onClick={onNext}><SkipForward size={14} /></button>
+          <button type="button" title="Next" onClick={!empty ? onNext : undefined}><SkipForward size={14} /></button>
           <button
             type="button"
             title={repeat === 'off' ? 'Repeat off' : repeat === 'all' ? 'Repeat all' : 'Repeat one'}
-            style={repeatStyle}
-            onClick={onRepeatToggle}
+            style={!empty ? repeatStyle : mutedOff}
+            onClick={!empty ? onRepeatToggle : undefined}
           >
             {repeat === 'one' ? <Repeat1 size={14} /> : <Repeat size={14} />}
           </button>
         </div>
 
         <div className={s.playerBarWrap}>
-          <span className="tnum">{formatTime(playhead)}</span>
-          <div className={s.playerBar} onClick={onBarClick}>
-            <div className={s.playerBarFill} style={{ width: `${pct}%` }} />
-            <div className={s.playerBarHead} style={{ left: `${pct}%` }} />
+          <span className="tnum">{formatTime(empty ? 0 : playhead)}</span>
+          <div className={s.playerBar} onClick={onBarClick} style={empty ? { cursor: 'default' } : undefined}>
+            {!empty && <div className={s.playerBarFill} style={{ width: `${pct}%` }} />}
+            {!empty && <div className={s.playerBarHead} style={{ left: `${pct}%` }} />}
           </div>
-          <span className="tnum" style={{ color: 'var(--fg-3)' }}>{formatTime(dur)}</span>
+          <span className="tnum" style={{ color: 'var(--fg-3)' }}>{formatTime(empty ? 0 : dur)}</span>
         </div>
       </div>
 
       {/* ── Right: actions + volume ── */}
-      <div className={s.playerRight}>
+      <div className={s.playerRight} style={empty ? { opacity: 0.35 } : undefined}>
         <button
           type="button"
           className="mono"
@@ -114,7 +117,7 @@ export function Player({
         >
           Stems
         </button>
-        {track.audioUrl ? (
+        {!empty && track.audioUrl ? (
           <a
             href={track.audioUrl}
             download={`${track.title}.mp3`}

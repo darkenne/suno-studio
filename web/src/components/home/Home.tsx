@@ -42,24 +42,6 @@ export function Home({
         <h1 className="h-display">Hi, what are we making today?</h1>
       </div>
 
-      {/* Onboarding empty state */}
-      {isEmpty && (
-        <div className="section">
-          <div className="home-onboard">
-            <div className="home-onboard-ic mono" aria-hidden>
-              <CircleDot size={16} />
-            </div>
-            <div className="home-onboard-title">No tracks yet</div>
-            <div className="home-onboard-sub">Head to Create to make your first piece of music.</div>
-            <button type="button" className="btn primary" onClick={onGoCreate}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Plus size={14} />
-                Start creating
-              </span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Credits */}
       <div className="section">
