@@ -9,7 +9,7 @@ function TopBar({ view, batchJobs, batchTotal, savedCount }) {
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
         <div className="brand">
           <div className="brand-mark" />
-          <span>SUNO<span style={{ color: "var(--fg-3)", margin: "0 4px" }}>/</span>STUDIO</span>
+          <span>REEL</span>
         </div>
         <div className="mono" style={{ fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Workspace · <span style={{ color: "var(--fg-1)" }}>Untitled Session</span>
@@ -22,14 +22,16 @@ function TopBar({ view, batchJobs, batchTotal, savedCount }) {
         ) : (
           <span><span className="dot" style={{ background: "var(--fg-2)", boxShadow: "none" }} />READY</span>
         )}
-        <span>SUNO<span className="dot" style={{ marginLeft: 8, marginRight: 6 }} />CONNECTED</span>
-        <span>QUOTA <span className="tnum" style={{ color: "var(--fg-1)", margin: "0 4px" }}>847</span> / 1000</span>
+        <span><span className="dot" style={{ marginRight: 6 }} />CONNECTED</span>
+        <span>CREDITS <span className="tnum" style={{ color: "var(--fg-1)", margin: "0 4px" }}>847</span> / 1000</span>
       </div>
     </div>
   );
 }
 
-function Nav({ view, onNav, trackCount, favCount, runningCount }) {
+function Nav({ view, onNav, onOpenPlaylist, onNewPlaylist, activePlaylistId, playlists, trackCount, favCount, runningCount }) {
+  const [plExpanded, setPlExpanded] = React.useState(true);
+
   const item = (key, label, badge) => (
     <button className={"nav-item" + (view === key ? " active" : "")} onClick={() => onNav(key)}>
       <span>{label}</span>
@@ -39,21 +41,45 @@ function Nav({ view, onNav, trackCount, favCount, runningCount }) {
 
   return (
     <nav className="nav">
-      <div className="nav-sec">Workspace</div>
-      {item("create", "Create", null)}
-      {item("generating", "Generating", runningCount || null)}
+      <button className={"nav-item nav-home" + (view === "home" ? " active" : "")} onClick={() => onNav("home")}>
+        <span>Home</span>
+      </button>
+
+      {item("create", "Create", runningCount || null)}
       {item("library", "Library", trackCount)}
 
-      <div className="nav-sec">Collections</div>
-      <button className="nav-item"><span>Favorites</span><span className="badge tnum">{favCount}</span></button>
-      <button className="nav-item"><span>Recent</span><span className="badge">24h</span></button>
-      <button className="nav-item"><span>Instrumentals</span></button>
-
-      <div className="nav-sec">Presets</div>
-      <button className="nav-item"><span>Lo-fi Study</span></button>
-      <button className="nav-item"><span>Dream-pop</span></button>
-      <button className="nav-item"><span>Ambient Drone</span></button>
-      <button className="nav-item"><span>+ New Preset</span></button>
+      <button
+        className={"nav-item nav-accordion" + (view === "playlists" ? " active" : "")}
+        onClick={() => { onNav("playlists"); setPlExpanded(true); }}
+      >
+        <span>Playlists</span>
+        <span
+          className={"nav-caret" + (plExpanded ? " open" : "")}
+          onClick={(e) => { e.stopPropagation(); setPlExpanded(v => !v); }}
+          role="button"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </span>
+      </button>
+      {plExpanded && (
+        <div className="nav-children">
+          {playlists.map(pl => (
+            <button
+              key={pl.id}
+              className={"nav-child" + (view === "playlist-detail" && activePlaylistId === pl.id ? " active" : "")}
+              onClick={() => onOpenPlaylist(pl.id)}
+            >
+              <span className="nav-child-dot" />
+              <span className="nav-child-label">{pl.title}</span>
+              <span className="badge tnum">{pl.tracks.length}</span>
+            </button>
+          ))}
+          <button className="nav-child add" onClick={onNewPlaylist}>
+            <span className="nav-child-dot">+</span>
+            <span className="nav-child-label">New Playlist</span>
+          </button>
+        </div>
+      )}
 
       <div className="nav-foot">
         v0.4.2 · Suno V5.5<br/>
@@ -64,9 +90,12 @@ function Nav({ view, onNav, trackCount, favCount, runningCount }) {
   );
 }
 
-function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId, recentTracks }) {
-  const showBatch = view === "generating" && (batchTracks.length > 0 || batchJobs.some(j => j.status !== "SUCCESS" && j.status !== "FAILED"));
+function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId, recentTracks, onGoLibrary }) {
+  const hasBatch = batchJobs.length > 0;
+  const showBatch = view === "create";
   const pendingJobs = batchJobs.filter(j => j.status !== "SUCCESS" && j.status !== "FAILED");
+  const liveActive = pendingJobs.length > 0;
+  const savedFeed = batchTracks.slice().reverse();
 
   if (showBatch) {
     return (
@@ -75,28 +104,65 @@ function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId
           <div>
             <div className="h-eyebrow" style={{ marginBottom: 6 }}>Live Results</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--fg-2)" }}>
-              {batchTracks.length} ready · {pendingJobs.length} creating
+              {batchTracks.length} ready{hasBatch ? ` · ${pendingJobs.length} creating` : ""}
             </div>
           </div>
-          <div className="mono uc" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.14em" }}>
-            {completed ? "DONE" : "LIVE"}
-          </div>
+          {liveActive && (
+            <div className="mono uc live-pill" style={{ fontSize: 10, color: "var(--accent)", letterSpacing: "0.14em" }}>
+              <span className="live-dot" /> LIVE
+            </div>
+          )}
         </div>
         <div className="aside-body scroll">
-          {pendingJobs.map(j => (
-            <div key={j.taskId} className="result-card" style={{ borderColor: "var(--line)" }}>
-              <div className="rc-cover" style={{ background: "var(--bg-3)", display: "grid", placeItems: "center" }}>
-                <Waveform state="pending" seed={hash(j.taskId)} bars={10} height={28} />
-              </div>
-              <div className="rc-body">
-                <div className="rc-title" style={{ color: "var(--fg-2)" }}>Creating...</div>
-                <div className="rc-sub">{j.taskId} · {j.statusMessage}</div>
-              </div>
-              <div className="mono" style={{ fontSize: 10, color: "var(--warn)", letterSpacing: "0.08em" }}>
-                {j.status}
+          {!hasBatch && (
+            <div className="empty aside-idle">
+              <div className="mono uc" style={{ color: "var(--fg-3)", fontSize: 10, letterSpacing: "0.14em", marginBottom: 8 }}>No run yet</div>
+              <div style={{ fontSize: 12, color: "var(--fg-2)" }}>
+                Tracks you generate will appear here live as they're created.
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Saved-toast feed (newest first) */}
+          {savedFeed.length > 0 && (
+            <div className="saved-feed">
+              {savedFeed.map(t => (
+                <div key={"feed_" + t.id} className="saved-feed-line mono">
+                  <span style={{ color: "var(--accent)", marginRight: 6 }}>✓</span>
+                  <span style={{ color: "var(--fg-1)" }}>"{t.title}"</span>
+                  <span style={{ color: "var(--fg-3)" }}> saved to library</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {pendingJobs.map(j => {
+            const isText = j.status === "TEXT";
+            const isFirst = j.status === "FIRST";
+            const isPending = j.status === "PENDING";
+            const badge = isText ? "TEXT" : isFirst ? "FIRST" : isPending ? "PENDING" : j.status;
+            const sub = isText
+              ? "Writing lyrics"
+              : isFirst
+              ? "Creating audio"
+              : isPending
+              ? "Waiting"
+              : j.statusMessage;
+            return (
+              <div key={j.taskId} className="result-card" style={{ borderColor: "var(--line)" }}>
+                <div className="rc-cover" style={{ background: "var(--bg-3)", display: "grid", placeItems: "center" }}>
+                  <Waveform state="pending" seed={hash(j.taskId)} bars={10} height={28} />
+                </div>
+                <div className="rc-body">
+                  <div className="rc-title" style={{ color: "var(--fg-2)" }}>Creating...</div>
+                  <div className="rc-sub">{j.taskId} · {sub}</div>
+                </div>
+                <div className={"mono live-badge " + (isText || isFirst || isPending ? "warn" : "")} style={{ fontSize: 10, letterSpacing: "0.14em" }}>
+                  {badge}
+                </div>
+              </div>
+            );
+          })}
           {batchTracks.map(t => (
             <div
               key={t.id}
@@ -112,9 +178,6 @@ function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId
               <div className="rc-play">▶</div>
             </div>
           ))}
-          {batchTracks.length === 0 && pendingJobs.length === 0 && (
-            <div className="empty">No jobs running.</div>
-          )}
         </div>
       </div>
     );
@@ -129,7 +192,10 @@ function Aside({ view, batchTracks, batchJobs, completed, onPlay, currentTrackId
             Last 24 hours
           </div>
         </div>
-        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+        <button
+          className="home-see-all"
+          onClick={onGoLibrary}
+        >
           See all →
         </button>
       </div>
@@ -160,7 +226,7 @@ function hash(s) {
   return Math.abs(h);
 }
 
-function Player({ track, isPlaying, onPlayPause, playhead, onSeek }) {
+function Player({ track, contextLabel, isPlaying, onPlayPause, playhead, onSeek, onPrev, onNext, shuffle, onToggleShuffle, lyricsOpen, onToggleLyrics }) {
   if (!track) {
     return <div className="player"><div /><div className="empty">No track loaded</div><div /></div>;
   }
@@ -179,18 +245,22 @@ function Player({ track, isPlaying, onPlayPause, playhead, onSeek }) {
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="title">{track.title}</div>
-          <div className="sub">{track.tags.split(",")[0]} · {track.model}</div>
+          <div className="sub">
+            {contextLabel
+              ? <><span style={{ color: "var(--accent)" }}>♪ {contextLabel}</span><span style={{ margin: "0 6px", color: "var(--fg-3)" }}>·</span>{track.model}</>
+              : <>{track.tags.split(",")[0]} · {track.model}</>}
+          </div>
         </div>
       </div>
 
       <div className="player-center">
         <div className="player-controls">
-          <button title="Shuffle" style={{ color: "var(--fg-3)", fontSize: 14 }}>⇄</button>
-          <button title="Previous" style={{ fontSize: 16 }}>⏮</button>
+          <button title="Shuffle" onClick={onToggleShuffle} style={{ color: shuffle ? "var(--accent)" : "var(--fg-3)", fontSize: 14 }}>⇄</button>
+          <button title="Previous" onClick={onPrev} style={{ fontSize: 16 }}>⏮</button>
           <button className="play" onClick={onPlayPause} title={isPlaying ? "Pause" : "Play"}>
             <span style={{ fontSize: 11 }}>{isPlaying ? "❚❚" : "▶"}</span>
           </button>
-          <button title="Next" style={{ fontSize: 16 }}>⏭</button>
+          <button title="Next" onClick={onNext} style={{ fontSize: 16 }}>⏭</button>
           <button title="Repeat" style={{ color: "var(--fg-3)", fontSize: 14 }}>↻</button>
         </div>
         <div className="player-bar-wrap">
@@ -204,7 +274,12 @@ function Player({ track, isPlaying, onPlayPause, playhead, onSeek }) {
       </div>
 
       <div className="player-right">
-        <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Lyrics</button>
+        <button
+          className={"mono lyr-toggle" + (lyricsOpen ? " on" : "")}
+          onClick={onToggleLyrics}
+          style={{ fontSize: 10, color: lyricsOpen ? "var(--accent)" : "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 8px" }}
+          title="Toggle lyrics"
+        >Lyrics</button>
         <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Stems</button>
         <button className="mono" style={{ fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>↓ WAV</button>
         <div className="mono" style={{ fontSize: 10, color: "var(--fg-3)" }}>VOL</div>

@@ -164,7 +164,10 @@ function Toasts({ toasts }) {
     <div className="toast-host">
       {toasts.map(t => (
         <div key={t.id} className={"toast" + (t.kind === "err" ? " err" : "")}>
-          {t.msg}
+          <span>{t.msg}</span>
+          {t.action && (
+            <button className="toast-act" onClick={t.action.fn}>{t.action.label}</button>
+          )}
         </div>
       ))}
     </div>

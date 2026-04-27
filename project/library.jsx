@@ -1,11 +1,17 @@
-// library.jsx — saved tracks list with search, filters, favorites
+// library.jsx — saved tracks list with search, filters, favorites, multi-select, playlist actions
 
-function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
+function Library({ tracks, playlists, onPlay, currentTrackId, onToggleFav, onDelete, onAddToPlaylist, onAddToQueue, onNewPlaylistWithTracks }) {
   const confirm = useConfirm();
   const [q, setQ] = React.useState("");
   const [mode, setMode] = React.useState("all");
   const [favOnly, setFavOnly] = React.useState(false);
   const [orderBy, setOrderBy] = React.useState("newest");
+  const [selected, setSelected] = React.useState(new Set());
+  const [rowMenuFor, setRowMenuFor] = React.useState(null);
+  const [rowMenuRect, setRowMenuRect] = React.useState(null);
+  const [barMenuOpen, setBarMenuOpen] = React.useState(false);
+  const [barMenuRect, setBarMenuRect] = React.useState(null);
+  const [addPlaylistMenu, setAddPlaylistMenu] = React.useState(null); // for single row "Add to Playlist" submenu
 
   const filtered = React.useMemo(() => {
     let list = [...tracks];
@@ -29,6 +35,17 @@ function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
 
   const totalDur = filtered.reduce((s, t) => s + t.duration, 0);
   const favCount = tracks.filter(t => t.isFavorite).length;
+
+  const toggleSelect = (id) => {
+    setSelected(s => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  const selectedArr = Array.from(selected);
 
   return (
     <div className="main scroll">
@@ -95,11 +112,12 @@ function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
         />
       </div>
 
-      <div className="track-header">
+      <div className="track-header lib-track-header">
+        <span></span>
         <span>#</span>
         <span></span>
         <span>Title · Tags</span>
-        <span>Mode / Prompt</span>
+        <span>Mode · Prompt</span>
         <span>Model</span>
         <span style={{ textAlign: "right" }}>Duration</span>
         <span></span>
@@ -110,9 +128,19 @@ function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
         {filtered.map((t, i) => (
           <div
             key={t.id}
-            className={"track" + (t.id === currentTrackId ? " playing" : "")}
+            className={"track lib-track" + (t.id === currentTrackId ? " playing" : "") + (selected.has(t.id) ? " selected" : "")}
             onClick={() => onPlay(t)}
           >
+            <label className="track-check" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={selected.has(t.id)}
+                onChange={() => toggleSelect(t.id)}
+              />
+              <span className="chk" aria-hidden>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+            </label>
             <div className="num tnum">{String(i + 1).padStart(2, "0")}</div>
             <div className="cover"><Cover track={t} size={44} /></div>
             <div className="title-block">
@@ -140,18 +168,12 @@ function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
             </button>
             <button
               className="menu"
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                const ok = await confirm({
-                  eyebrow: "Library",
-                  title: `Delete "${t.title}"?`,
-                  body: "This removes the track from your library. The generated audio cannot be recovered.",
-                  confirmLabel: "Delete track",
-                  tone: "danger",
-                });
-                if (ok) onDelete(t.id);
+                setRowMenuRect(e.currentTarget.getBoundingClientRect());
+                setRowMenuFor(t.id);
               }}
-              title="Delete"
+              title="More"
             >
               ⋯
             </button>
@@ -164,6 +186,91 @@ function Library({ tracks, onPlay, currentTrackId, onToggleFav, onDelete }) {
           </div>
         )}
       </div>
+
+      {/* Multi-select action bar */}
+      {selected.size > 0 && (
+        <div className="multi-bar">
+          <div className="multi-bar-inner">
+            <div className="mono uc" style={{ fontSize: 11, color: "var(--accent)", letterSpacing: "0.12em" }}>
+              ● {selected.size} SELECTED
+            </div>
+            <div style={{ flex: 1 }} />
+            <button
+              className="btn sm primary"
+              onClick={(e) => {
+                setBarMenuRect(e.currentTarget.getBoundingClientRect());
+                setBarMenuOpen(true);
+              }}
+            >+ Add to Playlist</button>
+            <button className="btn sm ghost" onClick={clearSelection}>Clear</button>
+          </div>
+        </div>
+      )}
+
+      {/* Row menu */}
+      <Menu open={!!rowMenuFor} anchorRect={rowMenuRect} onClose={() => { setRowMenuFor(null); setAddPlaylistMenu(null); }}>
+        {!addPlaylistMenu ? (
+          <>
+            <MenuItem onClick={() => { onAddToQueue(rowMenuFor); setRowMenuFor(null); }}>Add to Queue</MenuItem>
+            <MenuItem
+              onClick={() => setAddPlaylistMenu(rowMenuFor)}
+            >Add to Playlist →</MenuItem>
+            <MenuSep />
+            <MenuItem
+              danger
+              onClick={async () => {
+                const id = rowMenuFor;
+                const t = tracks.find(x => x.id === id);
+                setRowMenuFor(null);
+                if (!t) return;
+                const ok = await confirm({
+                  eyebrow: "Library",
+                  title: `Delete "${t.title}"?`,
+                  body: "This removes the track from your library. The generated audio cannot be recovered.",
+                  confirmLabel: "Delete track",
+                  tone: "danger",
+                });
+                if (ok) onDelete(id);
+              }}
+            >Delete Track</MenuItem>
+          </>
+        ) : (
+          <>
+            <MenuHeading>Add to Playlist</MenuHeading>
+            {playlists.map(pl => (
+              <MenuItem
+                key={pl.id}
+                sub={pl.tracks.length}
+                onClick={() => { onAddToPlaylist(pl.id, [addPlaylistMenu]); setRowMenuFor(null); setAddPlaylistMenu(null); }}
+              >{pl.title}</MenuItem>
+            ))}
+            <MenuSep />
+            <MenuItem
+              onClick={() => {
+                onNewPlaylistWithTracks([addPlaylistMenu]);
+                setRowMenuFor(null);
+                setAddPlaylistMenu(null);
+              }}
+            >+ New Playlist</MenuItem>
+          </>
+        )}
+      </Menu>
+
+      {/* Bar menu */}
+      <Menu open={barMenuOpen} anchorRect={barMenuRect} onClose={() => setBarMenuOpen(false)}>
+        <MenuHeading>Add {selected.size} track{selected.size === 1 ? "" : "s"} to…</MenuHeading>
+        {playlists.map(pl => (
+          <MenuItem
+            key={pl.id}
+            sub={pl.tracks.length}
+            onClick={() => { onAddToPlaylist(pl.id, selectedArr); setBarMenuOpen(false); clearSelection(); }}
+          >{pl.title}</MenuItem>
+        ))}
+        <MenuSep />
+        <MenuItem
+          onClick={() => { onNewPlaylistWithTracks(selectedArr); setBarMenuOpen(false); clearSelection(); }}
+        >+ New Playlist</MenuItem>
+      </Menu>
     </div>
   );
 }
