@@ -8,6 +8,9 @@ export type View = 'home' | 'create' | 'generating' | 'library' | 'playlists' | 
 export type AccentKey = 'lime' | 'amber' | 'cyan' | 'magenta' | 'coral';
 export type FontPair = 'mono-sans' | 'serif-mono' | 'grotesk-mono' | 'neue-mono';
 
+/** Seconds from start + line text (LRC-style; used by LyricsOverlay). */
+export type TimedLyricLine = { t: number; text: string };
+
 export interface Track {
   id: string;
   sunoId: string;
@@ -28,6 +31,8 @@ export interface Track {
   audioUrl?: string;
   streamAudioUrl?: string;
   imageUrl?: string;
+  /** Plain lyrics from form/API, or timed lines for the lyrics overlay. */
+  lyrics?: string | TimedLyricLine[];
 }
 
 export interface PlaylistTrack {

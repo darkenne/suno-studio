@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, Playlist, PlaylistTrack, RepeatMode, Track, View } from '@/types';
+import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, Playlist, PlaylistTrack, RepeatMode, TimedLyricLine, Track, View } from '@/types';
 import { ConfirmProvider } from '@/hooks/useConfirm';
 import { useBatch } from '@/hooks/useBatch';
 import { useToasts } from '@/hooks/useToasts';
@@ -8,6 +8,7 @@ import { TopBar } from '@/components/shell/TopBar';
 import { Nav } from '@/components/shell/Nav';
 import { Aside } from '@/components/shell/Aside';
 import { Player } from '@/components/shell/Player';
+import { LyricsOverlay } from '@/components/shell/LyricsOverlay';
 import { Tweaks } from '@/components/shell/Tweaks';
 import { CreatePanel } from '@/components/create/CreatePanel';
 import { SimplePanel } from '@/components/create/SimplePanel';
@@ -43,6 +44,7 @@ function Studio() {
   const [repeat, setRepeat]                 = useState<RepeatMode>('off');
   const [shuffle, setShuffle]               = useState(false);
   const [volume, setVolume]                 = useState(0.8);
+  const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [hydrated, setHydrated]             = useState(false);
   const [workspaceId, setWorkspaceId]       = useState<string | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
@@ -198,6 +200,10 @@ function Studio() {
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
 
+  useEffect(() => {
+    if (!currentTrack) setLyricsOpen(false);
+  }, [currentTrack]);
+
   const handleNextRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -320,6 +326,12 @@ function Studio() {
     setPlayhead(0);
     setIsPlaying(true);
     if (audioRef.current) audioRef.current.currentTime = 0;
+  }, []);
+
+  const onTimedLyricsLoaded = useCallback((trackId: string, lines: TimedLyricLine[]) => {
+    if (!lines.length) return;
+    setTracks(ts => ts.map(t => (t.id === trackId ? { ...t, lyrics: lines } : t)));
+    setCurrentTrack(ct => (ct?.id === trackId ? { ...ct, lyrics: lines } : ct));
   }, []);
 
   const handleNext = useCallback(() => {
@@ -451,6 +463,7 @@ function Studio() {
   };
 
   const openPlaylist = (id: string) => {
+    setLyricsOpen(false);
     setActivePlaylistId(id);
     setView('playlist-detail');
   };
@@ -550,7 +563,7 @@ function Studio() {
 
       <Nav
         view={view}
-        onNav={setView}
+        onNav={v => { setLyricsOpen(false); setView(v); }}
         onOpenPlaylist={openPlaylist}
         onNewPlaylist={handleNewPlaylist}
         activePlaylistId={activePlaylistId}
@@ -560,81 +573,101 @@ function Studio() {
         runningCount={runningCount}
       />
 
-      <main className={`${s.main} scroll`}>
-        {view === 'home' && (
-          <Home
-            tracks={tracks}
-            playlists={playlists}
-            credits={credits}
-            isCreditsLoading={creditsLoading}
-            isDataLoading={!hydrated}
-            currentTrackId={currentTrack?.id}
-            onPlay={playTrack}
-            onGoLibrary={() => setView('library')}
-            onGoPlaylists={() => setView('playlists')}
-            onOpenPlaylist={openPlaylist}
-            onGoCreate={() => setView('create')}
-            onNewPlaylist={handleNewPlaylist}
+      <main className={lyricsOpen && currentTrack ? s.main : `${s.main} scroll`}>
+        {lyricsOpen && currentTrack ? (
+          <LyricsOverlay
+            open={lyricsOpen}
+            onClose={() => setLyricsOpen(false)}
+            track={currentTrack}
+            playhead={playhead}
+            isPlaying={isPlaying}
+            onSeek={t => {
+              setPlayhead(t);
+              if (audioRef.current && currentTrack?.audioUrl) {
+                audioRef.current.currentTime = t;
+              }
+              setIsPlaying(true);
+            }}
+            onTimedLyricsLoaded={onTimedLyricsLoaded}
           />
-        )}
+        ) : (
+          <>
+            {view === 'home' && (
+              <Home
+                tracks={tracks}
+                playlists={playlists}
+                credits={credits}
+                isCreditsLoading={creditsLoading}
+                isDataLoading={!hydrated}
+                currentTrackId={currentTrack?.id}
+                onPlay={playTrack}
+                onGoLibrary={() => setView('library')}
+                onGoPlaylists={() => setView('playlists')}
+                onOpenPlaylist={openPlaylist}
+                onGoCreate={() => setView('create')}
+                onNewPlaylist={handleNewPlaylist}
+              />
+            )}
 
-        {view === 'create' && createMode === 'advanced' && (
-          <CreatePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
-        )}
-        {view === 'create' && createMode === 'simple' && (
-          <SimplePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
-        )}
+            {view === 'create' && createMode === 'advanced' && (
+              <CreatePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
+            )}
+            {view === 'create' && createMode === 'simple' && (
+              <SimplePanel onStartBatch={handleStartBatch} onSwitchMode={setCreateMode} />
+            )}
 
-        {view === 'generating' && (
-          <GenerationView
-            jobs={jobs}
-            allTracks={batchTracks}
-            totalCount={batchTotal}
-            onCancel={handleCancelBatch}
-            onDone={() => setView('library')}
-          />
-        )}
+            {view === 'generating' && (
+              <GenerationView
+                jobs={jobs}
+                allTracks={batchTracks}
+                totalCount={batchTotal}
+                onCancel={handleCancelBatch}
+                onDone={() => setView('library')}
+              />
+            )}
 
-        {view === 'library' && (
-          <Library
-            tracks={tracks}
-            playlists={playlists}
-            currentTrackId={currentTrack?.id}
-            onPlay={playTrack}
-            onToggleFav={toggleFav}
-            onDelete={deleteTrack}
-            onDeleteMany={deleteTracks}
-            onAddToPlaylist={addToPlaylist}
-            onAddToQueue={addToQueue}
-            onNewPlaylistWithTracks={handleNewPlaylistWithTracks}
-          />
-        )}
+            {view === 'library' && (
+              <Library
+                tracks={tracks}
+                playlists={playlists}
+                currentTrackId={currentTrack?.id}
+                onPlay={playTrack}
+                onToggleFav={toggleFav}
+                onDelete={deleteTrack}
+                onDeleteMany={deleteTracks}
+                onAddToPlaylist={addToPlaylist}
+                onAddToQueue={addToQueue}
+                onNewPlaylistWithTracks={handleNewPlaylistWithTracks}
+              />
+            )}
 
-        {view === 'playlists' && (
-          <PlaylistsPage
-            playlists={playlists}
-            tracks={tracks}
-            onOpen={openPlaylist}
-            onCreate={handleNewPlaylist}
-            onDelete={deletePlaylist}
-          />
-        )}
+            {view === 'playlists' && (
+              <PlaylistsPage
+                playlists={playlists}
+                tracks={tracks}
+                onOpen={openPlaylist}
+                onCreate={handleNewPlaylist}
+                onDelete={deletePlaylist}
+              />
+            )}
 
-        {view === 'playlist-detail' && activePlaylist && (
-          <PlaylistDetailPage
-            playlist={activePlaylist}
-            tracks={tracks}
-            currentTrackId={currentTrack?.id}
-            onPlayPlaylist={playPlaylist}
-            onPlayTrack={(t) => playTrack(t)}
-            onRename={renamePlaylist}
-            onDescribe={describePlaylist}
-            onRemoveTrack={removeFromPlaylist}
-            onReorder={reorderPlaylist}
-            onDelete={deletePlaylist}
-            onAddToQueue={addToQueue}
-            onBack={() => setView('playlists')}
-          />
+            {view === 'playlist-detail' && activePlaylist && (
+              <PlaylistDetailPage
+                playlist={activePlaylist}
+                tracks={tracks}
+                currentTrackId={currentTrack?.id}
+                onPlayPlaylist={playPlaylist}
+                onPlayTrack={(t) => playTrack(t)}
+                onRename={renamePlaylist}
+                onDescribe={describePlaylist}
+                onRemoveTrack={removeFromPlaylist}
+                onReorder={reorderPlaylist}
+                onDelete={deletePlaylist}
+                onAddToQueue={addToQueue}
+                onBack={() => setView('playlists')}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -668,6 +701,8 @@ function Studio() {
         onShuffleToggle={() => setShuffle(s => !s)}
         volume={volume}
         onVolumeChange={setVolume}
+        lyricsOpen={lyricsOpen}
+        onToggleLyrics={() => setLyricsOpen(o => !o)}
       />
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />

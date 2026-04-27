@@ -1,4 +1,5 @@
 import type { Track, AdvancedFormValues } from '@/types';
+import { submittedLyricsFromForm } from '@/lib/trackMeta';
 
 const PALETTES: [string, string, string][] = [
   ['#d4e85c', '#1d2a14', '#6a7a3a'],
@@ -27,6 +28,8 @@ export function generateMockTracks(
       ? values.prompts[promptIndex % values.prompts.length] ?? values.prompts[0]
       : { title: values.title, style: values.style };
 
+  const savedLyrics = submittedLyricsFromForm(values, promptIndex);
+
   return Array.from({ length: count }, (_, i) => {
     const pIdx = (promptIndex * 2 + i) % PALETTES.length;
     const tIdx = (promptIndex * 2 + i) % TITLES.length;
@@ -47,6 +50,7 @@ export function generateMockTracks(
       createdAt: new Date().toISOString(),
       palette: PALETTES[pIdx],
       fresh: true,
+      lyrics: values.vocalType === 'instrumental' ? undefined : savedLyrics,
     };
   });
 }

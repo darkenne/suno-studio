@@ -1,4 +1,5 @@
 import type { Track, ModelOption, Playlist } from '@/types';
+import { LYRICS_BY_ID } from '@/lib/timedLyricsSeed';
 
 export const GENRES = [
   'pop', 'lo-fi', 'ambient', 'folk', 'synthwave', 'indie',
@@ -193,6 +194,11 @@ export const MOCK_TRACKS: Track[] = [
     palette: ['#a88ff5', '#1a1428', '#604aa0'],
   },
 ];
+
+MOCK_TRACKS.forEach(t => {
+  const timed = LYRICS_BY_ID[t.id];
+  if (timed) t.lyrics = timed;
+});
 
 export function seedPlaylists(tracks: Track[]): Playlist[] {
   const now = new Date().toISOString();

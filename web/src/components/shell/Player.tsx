@@ -19,12 +19,15 @@ interface PlayerProps {
   onShuffleToggle: () => void;
   volume: number;
   onVolumeChange: (v: number) => void;
+  lyricsOpen: boolean;
+  onToggleLyrics: () => void;
 }
 
 export function Player({
   track, isPlaying, onPlayPause, playhead, onSeek,
   onPrev, onNext, repeat, onRepeatToggle, shuffle, onShuffleToggle,
   volume, onVolumeChange,
+  lyricsOpen, onToggleLyrics,
 }: PlayerProps) {
   const empty = !track;
   const dur = track?.duration || 1;
@@ -105,8 +108,17 @@ export function Player({
       <div className={s.playerRight} style={empty ? { opacity: 0.35 } : undefined}>
         <button
           type="button"
-          className="mono"
-          style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: '0.1em', textTransform: 'uppercase' }}
+          className={`mono lyr-toggle${lyricsOpen ? ' on' : ''}`}
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            padding: '4px 8px',
+            ...(!lyricsOpen ? { color: 'var(--fg-3)' } : {}),
+          }}
+          title="Toggle lyrics"
+          aria-pressed={lyricsOpen}
+          onClick={onToggleLyrics}
         >
           Lyrics
         </button>

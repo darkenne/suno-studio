@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { BatchJob, AdvancedFormValues, Track } from '@/types';
 import { generateMockTracks } from '@/lib/mockGen';
+import { submittedLyricsFromForm } from '@/lib/trackMeta';
 
 interface BatchCallbacks {
   onNewTracks: (tracks: Track[]) => void;
@@ -84,6 +85,7 @@ interface SunoRaw {
   modelName?: string;
   duration?: number;
   createTime?: string;
+  lyrics?: string;
 }
 
 function mapRawToTrack(
@@ -94,6 +96,8 @@ function mapRawToTrack(
   jobIdx: number,
 ): Track {
   const pIdx = (promptIndex * 2 + jobIdx) % PALETTES.length;
+  const fromForm = submittedLyricsFromForm(values, promptIndex);
+  const lyricsFromApi = raw.lyrics?.trim();
   return {
     id:             `sn_${raw.id}`,
     sunoId:         raw.id,
@@ -114,6 +118,7 @@ function mapRawToTrack(
     audioUrl:       raw.audioUrl,
     streamAudioUrl: raw.streamAudioUrl,
     imageUrl:       raw.imageUrl,
+    lyrics:         lyricsFromApi || fromForm || undefined,
   };
 }
 
