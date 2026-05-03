@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import type { Playlist, Track } from '@/types';
-import { ArrowLeft, GripVertical, MoreHorizontal, Play, Plus, Shuffle, X } from 'lucide-react';
+import { ArrowLeft, Download, GripVertical, MoreHorizontal, Play, Plus, Shuffle, X } from 'lucide-react';
 import { Cover } from '@/components/cover/Cover';
 import { Menu, MenuItem, MenuSep } from '@/components/ui/Menu';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -204,11 +204,47 @@ export function PlaylistDetailPage({
   const [headMenuRect, setHeadMenuRect] = useState<DOMRect | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [dlPhase, setDlPhase] = useState<'idle' | 'fetching' | 'encoding' | 'done'>('idle');
+  const [dlLoaded, setDlLoaded] = useState(0);
+  const [dlTotal, setDlTotal] = useState(0);
 
   useEffect(() => {
     setTitleVal(playlist.title);
     setDescVal(playlist.description);
   }, [playlist.id, playlist.title, playlist.description]);
+
+  const downloadMerged = async () => {
+    const items = list.filter(t => t.audioUrl);
+    if (items.length === 0) return;
+    setDlPhase('fetching');
+    setDlLoaded(0);
+    setDlTotal(items.length);
+    try {
+      const ctx = new AudioContext();
+      const buffers: AudioBuffer[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const res = await fetch(items[i].audioUrl!);
+        const ab = await res.arrayBuffer();
+        const decoded = await ctx.decodeAudioData(ab);
+        buffers.push(decoded);
+        setDlLoaded(i + 1);
+      }
+      setDlPhase('encoding');
+      await new Promise(r => setTimeout(r, 0));
+      const wav = mergeToWav(buffers);
+      const blob = new Blob([wav], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${playlist.title}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDlPhase('done');
+      setTimeout(() => setDlPhase('idle'), 2500);
+    } catch {
+      setDlPhase('idle');
+    }
+  };
 
   const list = playlist.tracks
     .slice()
@@ -331,6 +367,21 @@ export function PlaylistDetailPage({
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   <Shuffle size={13} strokeWidth={2} aria-hidden="true" />
                   Shuffle
+                </span>
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={downloadMerged}
+                disabled={list.length === 0 || dlPhase !== 'idle'}
+                title="Merge all tracks and download as one WAV file"
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Download size={13} strokeWidth={2} aria-hidden="true" />
+                  {dlPhase === 'idle' && 'Download All'}
+                  {dlPhase === 'fetching' && `Loading ${dlLoaded}/${dlTotal}…`}
+                  {dlPhase === 'encoding' && 'Encoding…'}
+                  {dlPhase === 'done' && 'Done!'}
                 </span>
               </button>
               <button
@@ -464,4 +515,39 @@ export function PlaylistDetailPage({
       </Menu>
     </div>
   );
+}
+
+/* ── Audio merge helpers ────────────────────────────────── */
+function mergeToWav(buffers: AudioBuffer[]): ArrayBuffer {
+  const sampleRate = buffers[0].sampleRate;
+  const numChannels = buffers[0].numberOfChannels;
+  const totalFrames = buffers.reduce((s, b) => s + b.length, 0);
+  const bytesPerSample = 2;
+  const dataSize = totalFrames * numChannels * bytesPerSample;
+  const out = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(out);
+
+  const w = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true);
+  w(8, 'WAVE'); w(12, 'fmt '); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+  view.setUint16(32, numChannels * bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  w(36, 'data'); view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (const buf of buffers) {
+    const channels = Array.from({ length: numChannels }, (_, c) => buf.getChannelData(c));
+    for (let i = 0; i < buf.length; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        const s = Math.max(-1, Math.min(1, channels[c][i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        offset += 2;
+      }
+    }
+  }
+  return out;
 }
