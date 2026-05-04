@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { ChevronDown, Plus, Radio } from 'lucide-react';
+import { ChevronDown, Radio } from 'lucide-react';
 import type { Playlist, View } from '@/types';
 import s from './Shell.module.css';
 
@@ -59,7 +59,7 @@ export function Nav({
           role="button"
           aria-label="Toggle playlists"
         >
-          <ChevronDown size={10} />
+          <ChevronDown size={14} />
         </span>
       </button>
 
@@ -77,7 +77,7 @@ export function Nav({
             </button>
           ))}
           <button className="nav-child add" onClick={onNewPlaylist}>
-            <span className="nav-child-dot"><Plus size={10} /></span>
+            <span className="nav-child-dot" />
             <span className="nav-child-label">New Playlist</span>
           </button>
         </div>

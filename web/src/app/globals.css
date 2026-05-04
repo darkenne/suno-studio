@@ -477,7 +477,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* ── Nav accordion (Playlists) ──────────────────────────── */
 .nav-children {
   display: flex; flex-direction: column;
-  padding: 2px 0 6px 10px; margin-left: 4px;
+  padding: 2px 10px 6px 10px; margin-left: 22px;
   border-left: 1px solid var(--line); gap: 1px;
 }
 .nav-child {
@@ -490,7 +490,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 .nav-child:hover { background: var(--bg-1); color: var(--fg-1); }
 .nav-child.active { background: var(--accent-soft); color: var(--accent); }
 .nav-child-dot {
-  width: 10px; height: 10px;
+  width: 8px; height: 8px;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--fg-3); color: var(--fg-3); border-radius: 50%;
   font-size: 8px; flex-shrink: 0;
