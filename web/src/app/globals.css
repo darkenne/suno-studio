@@ -803,7 +803,6 @@ input:focus, textarea:focus, select:focus { outline: none; }
 
 .home-recent {
   border: 1px solid var(--line); border-radius: 2px; overflow: hidden; width: 100%;
-  min-height: 306px;
 }
 .home-recent .track-list { width: 100%; }
 .home-recent-header, .home-recent-row {
