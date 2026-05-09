@@ -1,7 +1,9 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AccentKey, AdvancedFormValues, CreateMode, FontPair, Playlist, PlaylistTrack, RepeatMode, TimedLyricLine, Track, View } from '@/types';
 import { ConfirmProvider } from '@/hooks/useConfirm';
+import { createClient } from '@/lib/supabase/client';
 import { useBatch } from '@/hooks/useBatch';
 import { useToasts } from '@/hooks/useToasts';
 import { TopBar } from '@/components/shell/TopBar';
@@ -30,6 +32,8 @@ type CreditsState = {
 };
 
 function Studio() {
+  const router = useRouter();
+  const [authChecked, setAuthChecked]       = useState(false);
   const [view, setView]                     = useState<View>('home');
   const [createMode, setCreateMode]         = useState<CreateMode>('simple');
   const [tracks, setTracks]                 = useState<Track[]>([]);
@@ -70,6 +74,22 @@ function Studio() {
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const { jobs, batchTotal, batchTracks, isComplete, startBatch, cancelBatch } = useBatch();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  /* ── Auth guard ──────────────────────────────────── */
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace('/login');
+      } else {
+        setAuthChecked(true);
+      }
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') router.replace('/login');
+    });
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   /* ── Resolve workspace id ─────────────────────────── */
   useEffect(() => {
@@ -549,6 +569,8 @@ function Studio() {
   const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null;
 
   const noAside = view === 'playlists' || view === 'playlist-detail' || view === 'library';
+
+  if (!authChecked) return null;
 
   return (
     <div className={`${s.app}${noAside ? ` ${s.noAside}` : ''}`}>

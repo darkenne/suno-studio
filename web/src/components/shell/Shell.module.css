@@ -61,6 +61,87 @@
   color: var(--fg-2);
 }
 .topStatus > span { display: inline-flex; align-items: center; }
+
+/* Avatar */
+.avatarWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+}
+.avatarBtn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  flex-shrink: 0;
+  transition: border-color .12s, opacity .12s;
+  padding: 0;
+}
+.avatarBtn:hover { border-color: var(--accent-line); opacity: 0.9; }
+.avatarImg {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.avatarFallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-1);
+}
+.avatarMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  min-width: 180px;
+  box-shadow: 0 12px 32px -8px rgba(0,0,0,0.6);
+  animation: menuIn .1s ease-out;
+}
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.avatarMenuInfo {
+  padding: 10px 12px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.avatarMenuName {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.avatarMenuEmail {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  letter-spacing: 0.02em;
+}
+.avatarMenuDivider {
+  height: 1px;
+  background: var(--line);
+  margin: 0 0 4px;
+}
+.avatarMenuBtn {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  transition: background .08s, color .08s;
+  border-radius: 1px;
+}
+.avatarMenuBtn:hover { background: var(--bg-3); color: var(--err); }
 .dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent);
