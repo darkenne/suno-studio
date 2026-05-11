@@ -19,6 +19,7 @@ import { Library } from '@/components/library/Library';
 import { Home } from '@/components/home/Home';
 import { PlaylistsPage, PlaylistDetailPage, PlaylistTitleModal } from '@/components/playlists/Playlists';
 import { Toasts } from '@/components/ui/Toasts';
+import { BatchProgress } from '@/components/shell/BatchProgress';
 import s from '@/components/shell/Shell.module.css';
 
 const WORKSPACE_KEY      = 'suno_workspace_id';
@@ -55,6 +56,7 @@ function Studio() {
   const [creditedTotal, setCreditedTotal]   = useState<number>(DEFAULT_CREDITS);
   const creditedTotalRef                    = useRef<number>(DEFAULT_CREDITS);
   const lastRemainingRef                    = useRef<number | null>(null);
+  const prevIsCompleteRef                   = useRef(false);
   const [credits, setCredits]               = useState<CreditsState>({
     used: null,
     total: null,
@@ -441,6 +443,22 @@ function Studio() {
     cancelBatch({ onToast: pushToast });
   }, [cancelBatch, pushToast]);
 
+  /* ── Batch completion notification ──────────────── */
+  useEffect(() => {
+    if (isComplete && !prevIsCompleteRef.current) {
+      if (view !== 'generating') {
+        const n = batchTracks.length;
+        pushToast(
+          `${n} track${n !== 1 ? 's' : ''} ready`,
+          'ok',
+          { label: 'View Library', fn: () => setView('library') },
+        );
+      }
+    }
+    prevIsCompleteRef.current = isComplete;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComplete]);
+
   /* ── Track actions ───────────────────────────────── */
   const toggleFav = (id: string) => {
     setTracks(ts => ts.map(t => t.id === id ? { ...t, isFavorite: !t.isFavorite } : t));
@@ -755,6 +773,15 @@ function Studio() {
       />
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />
+
+      {view !== 'generating' && (
+        <BatchProgress
+          jobs={jobs}
+          batchTotal={batchTotal}
+          savedCount={batchTracks.length}
+          onNavigate={() => setView(isComplete ? 'library' : 'generating')}
+        />
+      )}
 
       <Tweaks
         open={tweaksOpen}
