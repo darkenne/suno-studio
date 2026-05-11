@@ -25,6 +25,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const oneTapRef = useRef(false);
+  const nonceRef = useRef<string>('');
 
   useEffect(() => {
     if (searchParams.get('error')) {
@@ -42,7 +43,10 @@ function LoginForm() {
   /* ── Google One Tap ─────────────────────────────── */
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId || oneTapRef.current) return;
+    if (!clientId) return;
+    // Prevent double-init from React StrictMode
+    if (oneTapRef.current) return;
+    oneTapRef.current = true;
 
     async function handleCredential(response: { credential: string }) {
       setLoading(true);
@@ -51,8 +55,10 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: response.credential,
+        nonce: nonceRef.current,
       });
       if (error) {
+        console.error('[OneTap] signInWithIdToken error:', error);
         setError(error.message);
         setLoading(false);
       } else {
@@ -60,17 +66,31 @@ function LoginForm() {
       }
     }
 
-    function initOneTap() {
+    async function initOneTap() {
+      // Generate nonce: raw for Supabase, SHA-256 hash for Google
+      const rawNonce = btoa(
+        String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))
+      );
+      nonceRef.current = rawNonce;
+
+      const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(rawNonce),
+      );
+      const hashedNonce = Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
       window.google?.accounts.id.initialize({
         client_id: clientId,
         callback: handleCredential,
+        nonce: hashedNonce,
         auto_select: true,
         cancel_on_tap_outside: false,
         context: 'signin',
         itp_support: true,
       });
       window.google?.accounts.id.prompt();
-      oneTapRef.current = true;
     }
 
     if (window.google?.accounts?.id) {
@@ -80,12 +100,9 @@ function LoginForm() {
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
-      script.onload = initOneTap;
+      script.onload = () => initOneTap();
       document.head.appendChild(script);
-      return () => {
-        window.google?.accounts.id.cancel();
-        script.remove();
-      };
+      return () => { script.remove(); };
     }
     return () => window.google?.accounts.id.cancel();
   // eslint-disable-next-line react-hooks/exhaustive-deps
