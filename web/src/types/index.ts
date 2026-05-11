@@ -4,7 +4,7 @@ export type VocalType = 'vocal' | 'instrumental';
 export type JobStatus = 'PENDING' | 'TEXT' | 'FIRST' | 'SUCCESS' | 'FAILED';
 export type PromptMode = 'single' | 'multi';
 export type CreateMode = 'simple' | 'advanced';
-export type View = 'home' | 'create' | 'generating' | 'library' | 'playlists' | 'playlist-detail';
+export type View = 'home' | 'create' | 'generating' | 'library' | 'playlists' | 'playlist-detail' | 'settings';
 export type AccentKey = 'lime' | 'amber' | 'cyan' | 'magenta' | 'coral';
 export type FontPair = 'mono-sans' | 'serif-mono' | 'grotesk-mono' | 'neue-mono';
 

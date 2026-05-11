@@ -20,6 +20,7 @@ import { Home } from '@/components/home/Home';
 import { PlaylistsPage, PlaylistDetailPage, PlaylistTitleModal } from '@/components/playlists/Playlists';
 import { Toasts } from '@/components/ui/Toasts';
 import { BatchProgress } from '@/components/shell/BatchProgress';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 import s from '@/components/shell/Shell.module.css';
 
 const WORKSPACE_KEY      = 'suno_workspace_id';
@@ -613,7 +614,7 @@ function Studio() {
   const runningCount = jobs.filter(j => j.status !== 'SUCCESS' && j.status !== 'FAILED').length;
   const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null;
 
-  const noAside = view === 'playlists' || view === 'playlist-detail' || view === 'library';
+  const noAside = view === 'playlists' || view === 'playlist-detail' || view === 'library' || view === 'settings';
 
   if (!authChecked) return null;
 
@@ -626,6 +627,7 @@ function Studio() {
         remainingCredits={credits.remaining}
         totalCredits={credits.total}
         isCreditsLoading={creditsLoading}
+        onOpenSettings={() => { setLyricsOpen(false); setView('settings'); }}
       />
 
       <Nav
@@ -732,6 +734,13 @@ function Studio() {
                 onDelete={deletePlaylist}
                 onAddToQueue={addToQueue}
                 onBack={() => setView('playlists')}
+              />
+            )}
+
+            {view === 'settings' && accessToken && (
+              <SettingsPanel
+                accessToken={accessToken}
+                onBack={() => setView('home')}
               />
             )}
           </>

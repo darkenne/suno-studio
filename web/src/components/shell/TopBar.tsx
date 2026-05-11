@@ -12,9 +12,10 @@ interface TopBarProps {
   remainingCredits: number | null;
   totalCredits: number | null;
   isCreditsLoading: boolean;
+  onOpenSettings?: () => void;
 }
 
-export function TopBar({ batchJobs, batchTotal, savedCount, remainingCredits, totalCredits, isCreditsLoading }: TopBarProps) {
+export function TopBar({ batchJobs, batchTotal, savedCount, remainingCredits, totalCredits, isCreditsLoading, onOpenSettings }: TopBarProps) {
   const router = useRouter();
   const running = batchJobs.filter(j => j.status !== 'SUCCESS' && j.status !== 'FAILED').length;
   const isGenerating = running > 0;
@@ -109,7 +110,7 @@ export function TopBar({ batchJobs, batchTotal, savedCount, remainingCredits, to
                 </div>
               )}
               <div className={s.avatarMenuDivider} />
-              <button className={s.avatarMenuBtn} onClick={() => { setMenuOpen(false); router.push('/settings'); }}>
+              <button className={s.avatarMenuBtn} onClick={() => { setMenuOpen(false); onOpenSettings ? onOpenSettings() : router.push('/settings'); }}>
                 Settings
               </button>
               <button className={`${s.avatarMenuBtn} ${s.avatarMenuBtnDanger}`} onClick={handleSignOut}>
