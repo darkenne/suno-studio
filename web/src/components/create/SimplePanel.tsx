@@ -100,7 +100,7 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
         <div className="flex gap-5 items-center justify-between">
           <div>
             <div className="label" style={{ marginBottom: 6 }}>Prompt Mode</div>
-            <div className="hint" style={{ maxWidth: 420 }}>
+            <div className="hint" style={{ maxWidth: 430 }}>
               {isMulti
                 ? 'Enter multiple prompts — the total track count is split across them.'
                 : 'Generate every track from a single one-line description.'}
@@ -248,7 +248,7 @@ export function SimplePanel({ onStartBatch, onSwitchMode }: SimplePanelProps) {
         )}
 
         <div className="flex gap-3 items-center justify-between mt-1.5">
-          <div className="hint" style={{ maxWidth: 420 }}>
+          <div className="hint" style={{ maxWidth: 430 }}>
             Requests: <span className="mono tnum" style={{ color: 'var(--fg-1)' }}>{apiCalls}</span>
             <span style={{ margin: '0 10px', color: 'var(--fg-3)' }}>·</span>
             Est. credits: <span className="mono tnum" style={{ color: 'var(--accent)' }}>{credits}</span>

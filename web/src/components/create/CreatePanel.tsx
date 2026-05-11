@@ -84,7 +84,7 @@ export function CreatePanel({ onStartBatch, onSwitchMode }: CreatePanelProps) {
         <div className="flex gap-5 items-center justify-between">
           <div>
             <div className="label" style={{ marginBottom: 6 }}>Prompt Mode</div>
-            <div className="hint" style={{ maxWidth: 420 }}>
+            <div className="hint" style={{ maxWidth: 430 }}>
               {isMulti
                 ? 'Each prompt gets its share of the total count, distributed evenly.'
                 : 'All tracks generated from a single title / style / lyrics.'}
@@ -211,7 +211,7 @@ export function CreatePanel({ onStartBatch, onSwitchMode }: CreatePanelProps) {
         )}
 
         <div className="flex gap-3 items-center justify-between mt-1.5">
-          <div className="hint" style={{ maxWidth: 420 }}>
+          <div className="hint" style={{ maxWidth: 430 }}>
             Requests: <span className="mono tnum" style={{ color: 'var(--fg-1)' }}>{apiCalls}</span>
             <span style={{ margin: '0 10px', color: 'var(--fg-3)' }}>·</span>
             Est. credits: <span className="mono tnum" style={{ color: 'var(--accent)' }}>{credits}</span>

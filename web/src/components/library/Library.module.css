@@ -66,8 +66,8 @@
 }
 .search { flex: 1; max-width: 380px; position: relative; }
 .searchInput {
-  width: 100%; background: var(--bg-2); border: 1px solid var(--line);
-  padding: 8px 12px 8px 34px; color: var(--fg);
+  width: 100%; height: var(--ctrl-h); background: var(--bg-2); border: 1px solid var(--line);
+  padding: 0 12px 0 34px; color: var(--fg);
   font-family: var(--mono); font-size: 12px; border-radius: 2px;
 }
 .searchIcon {
