@@ -21,9 +21,8 @@ import { PlaylistsPage, PlaylistDetailPage, PlaylistTitleModal } from '@/compone
 import { Toasts } from '@/components/ui/Toasts';
 import s from '@/components/shell/Shell.module.css';
 
-const WORKSPACE_KEY     = 'suno_workspace_id';
-const BASE_CREDITS_TOTAL = 1050;
-const CREDITS_TOTAL_KEY_PREFIX = 'suno_total_credited';
+const WORKSPACE_KEY      = 'suno_workspace_id';
+const DEFAULT_CREDITS    = 50;
 
 type CreditsState = {
   used: number | null;
@@ -53,10 +52,8 @@ function Studio() {
   const [workspaceId, setWorkspaceId]       = useState<string | null>(null);
   const [accessToken, setAccessToken]       = useState<string | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
-  const [creditedTotal, setCreditedTotal]   = useState<number>(BASE_CREDITS_TOTAL);
-  const [lastRemaining, setLastRemaining]   = useState<number | null>(null);
-  const creditedTotalRef                    = useRef<number>(BASE_CREDITS_TOTAL);
-  const lastRemainingRef                    = useRef<number | null>(null);
+  const [creditedTotal, setCreditedTotal]   = useState<number>(DEFAULT_CREDITS);
+  const creditedTotalRef                    = useRef<number>(DEFAULT_CREDITS);
   const [credits, setCredits]               = useState<CreditsState>({
     used: null,
     total: null,
@@ -109,6 +106,17 @@ function Studio() {
       } catch {
         // localStorage may be unavailable
       }
+
+      // Load user settings (API key, purchased credits)
+      fetch('/api/user/settings', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }).then(r => r.json()).then(json => {
+        if (!mounted) return;
+        const purchased = Number(json?.data?.credits_purchased ?? 0);
+        const total = DEFAULT_CREDITS + purchased;
+        setCreditedTotal(total);
+        creditedTotalRef.current = total;
+      }).catch(() => {});
 
       setAccessToken(token);
       setWorkspaceId(userId);
@@ -174,34 +182,6 @@ function Studio() {
   useEffect(() => {
     creditedTotalRef.current = creditedTotal;
   }, [creditedTotal]);
-
-  useEffect(() => {
-    lastRemainingRef.current = lastRemaining;
-  }, [lastRemaining]);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    try {
-      const raw = localStorage.getItem(`${CREDITS_TOTAL_KEY_PREFIX}_${workspaceId}`);
-      const parsed = Number(raw);
-      if (Number.isFinite(parsed) && parsed >= BASE_CREDITS_TOTAL) {
-        setCreditedTotal(parsed);
-        return;
-      }
-    } catch {
-      // ignore read failure
-    }
-    setCreditedTotal(BASE_CREDITS_TOTAL);
-  }, [workspaceId]);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    try {
-      localStorage.setItem(`${CREDITS_TOTAL_KEY_PREFIX}_${workspaceId}`, String(creditedTotal));
-    } catch {
-      // ignore write failure
-    }
-  }, [workspaceId, creditedTotal]);
 
   /* ── Persist snapshot to Supabase ────────────────── */
   useEffect(() => {
@@ -317,6 +297,7 @@ function Studio() {
 
   /* ── Credits ──────────────────────────────────────── */
   useEffect(() => {
+    if (!accessToken) return;
     let mounted = true;
     const controller = new AbortController();
 
@@ -325,29 +306,18 @@ function Studio() {
         const res = await fetch('/api/generate/credit', {
           signal: controller.signal,
           cache: 'no-store',
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         });
-        if (!res.ok) return;
+        if (!res.ok || !mounted) return;
         const payload = await res.json();
         const remaining = Number(payload?.data);
         if (!Number.isFinite(remaining) || !mounted) return;
 
-        const prevTotal = creditedTotalRef.current;
-        const prevRemaining = lastRemainingRef.current;
-        let nextTotal = prevTotal;
-        if (prevRemaining === null) {
-          // First sample: keep configured base, but never lower than remaining.
-          nextTotal = Math.max(prevTotal, remaining);
-        } else if (remaining > prevRemaining) {
-          // Remaining increase implies recharge happened.
-          nextTotal = prevTotal + (remaining - prevRemaining);
-        }
-
-        setCreditedTotal(nextTotal);
-        setLastRemaining(remaining);
+        const total = creditedTotalRef.current;
         setCredits({
-          total: nextTotal,
+          total,
           remaining,
-          used: Math.max(nextTotal - remaining, 0),
+          used: Math.max(total - remaining, 0),
         });
         setCreditsLoading(false);
       } catch {
@@ -363,7 +333,7 @@ function Studio() {
       controller.abort();
       clearInterval(id);
     };
-  }, []);
+  }, [accessToken]);
 
   /* ── Playback helpers ────────────────────────────── */
   const playTrack = useCallback((t: Track) => {
@@ -431,9 +401,10 @@ function Studio() {
     startBatch(values, {
       onNewTracks: newTracks => setTracks(prev => [...newTracks, ...prev]),
       onToast: pushToast,
+      accessToken,
     });
     setView('generating');
-  }, [startBatch, pushToast]);
+  }, [startBatch, pushToast, accessToken]);
 
   const handleCancelBatch = useCallback(() => {
     cancelBatch({ onToast: pushToast });

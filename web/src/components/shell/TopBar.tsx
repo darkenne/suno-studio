@@ -109,7 +109,10 @@ export function TopBar({ batchJobs, batchTotal, savedCount, remainingCredits, to
                 </div>
               )}
               <div className={s.avatarMenuDivider} />
-              <button className={s.avatarMenuBtn} onClick={handleSignOut}>
+              <button className={s.avatarMenuBtn} onClick={() => { setMenuOpen(false); router.push('/settings'); }}>
+                Settings
+              </button>
+              <button className={`${s.avatarMenuBtn} ${s.avatarMenuBtnDanger}`} onClick={handleSignOut}>
                 Sign out
               </button>
             </div>

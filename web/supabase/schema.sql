@@ -23,3 +23,17 @@ create trigger studio_snapshots_set_updated_at
 before update on public.studio_snapshots
 for each row
 execute function public.set_updated_at();
+
+-- Per-user settings (API key, credits)
+create table if not exists public.user_settings (
+  user_id           text primary key,
+  suno_api_key      text,
+  credits_purchased integer not null default 0,
+  updated_at        timestamptz not null default now()
+);
+
+drop trigger if exists user_settings_set_updated_at on public.user_settings;
+create trigger user_settings_set_updated_at
+before update on public.user_settings
+for each row
+execute function public.set_updated_at();

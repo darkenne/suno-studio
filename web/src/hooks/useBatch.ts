@@ -7,6 +7,7 @@ import { submittedLyricsFromForm } from '@/lib/trackMeta';
 interface BatchCallbacks {
   onNewTracks: (tracks: Track[]) => void;
   onToast: (msg: string, kind?: 'ok' | 'err') => void;
+  accessToken?: string | null;
 }
 
 const PALETTES: [string, string, string][] = [
@@ -135,7 +136,7 @@ export function useBatch() {
   );
 
   const startBatch = useCallback(
-    (formValues: AdvancedFormValues, { onNewTracks, onToast }: BatchCallbacks) => {
+    (formValues: AdvancedFormValues, { onNewTracks, onToast, accessToken }: BatchCallbacks) => {
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -160,7 +161,7 @@ export function useBatch() {
       setBatchTracks([]);
 
       newJobs.forEach((job, idx) => {
-        runJob(job, idx, formValues, ac.signal, { onNewTracks, onToast });
+        runJob(job, idx, formValues, ac.signal, { onNewTracks, onToast, accessToken });
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -172,14 +173,17 @@ export function useBatch() {
     idx: number,
     values: AdvancedFormValues,
     signal: AbortSignal,
-    { onNewTracks, onToast }: BatchCallbacks,
+    { onNewTracks, onToast, accessToken }: BatchCallbacks,
   ) {
     try {
       // Fire the generate request
       const body = buildSunoRequest(values, job.promptIndex, job.targetCount);
+      const authHeaders: Record<string, string> = accessToken
+        ? { 'Authorization': `Bearer ${accessToken}` }
+        : {};
       const genRes = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(body),
         signal,
       });
@@ -204,7 +208,7 @@ export function useBatch() {
       // Poll loop — max 10 min (200 × 3s)
       for (let poll = 0; poll < 200; poll++) {
         await sleep(3000, signal);
-        const pollRes = await fetch(`/api/generate/status?taskId=${encodeURIComponent(sunoTaskId)}`, { signal });
+        const pollRes = await fetch(`/api/generate/status?taskId=${encodeURIComponent(sunoTaskId)}`, { signal, headers: authHeaders });
         const pollData = await pollRes.json();
         const apiStatus: string = pollData?.data?.status ?? '';
 

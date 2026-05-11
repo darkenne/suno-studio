@@ -141,7 +141,8 @@
   transition: background .08s, color .08s;
   border-radius: 1px;
 }
-.avatarMenuBtn:hover { background: var(--bg-3); color: var(--err); }
+.avatarMenuBtn:hover { background: var(--bg-3); color: var(--fg); }
+.avatarMenuBtnDanger:hover { color: var(--err); }
 .dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent);
