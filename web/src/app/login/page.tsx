@@ -69,7 +69,7 @@ function LoginForm() {
     async function initOneTap() {
       // Generate nonce: raw for Supabase, SHA-256 hash for Google
       const rawNonce = btoa(
-        String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))
+        String.fromCharCode(...Array.from(crypto.getRandomValues(new Uint8Array(32))))
       );
       nonceRef.current = rawNonce;
 
