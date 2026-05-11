@@ -54,6 +54,7 @@ function Studio() {
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditedTotal, setCreditedTotal]   = useState<number>(DEFAULT_CREDITS);
   const creditedTotalRef                    = useRef<number>(DEFAULT_CREDITS);
+  const lastRemainingRef                    = useRef<number | null>(null);
   const [credits, setCredits]               = useState<CreditsState>({
     used: null,
     total: null,
@@ -320,6 +321,18 @@ function Studio() {
           used: Math.max(total - remaining, 0),
         });
         setCreditsLoading(false);
+
+        // Log usage event when credits decrease
+        const prev = lastRemainingRef.current;
+        if (prev !== null && remaining < prev) {
+          const creditsUsed = prev - remaining;
+          fetch('/api/user/credit-usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ credits_used: creditsUsed, remaining_after: remaining }),
+          }).catch(() => {});
+        }
+        lastRemainingRef.current = remaining;
       } catch {
         setCreditsLoading(false);
       }

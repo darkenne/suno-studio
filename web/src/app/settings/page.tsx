@@ -7,19 +7,70 @@ import s from './Settings.module.css';
 
 const DEFAULT_CREDITS = 50;
 
+type UsageEvent = {
+  id: number;
+  credits_used: number;
+  remaining_after: number;
+  created_at: string;
+};
+
+type DayBucket = { date: string; total: number };
+
+function buildDailyBuckets(events: UsageEvent[]): DayBucket[] {
+  const map = new Map<string, number>();
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    map.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const e of events) {
+    const day = e.created_at.slice(0, 10);
+    if (map.has(day)) map.set(day, (map.get(day) ?? 0) + e.credits_used);
+  }
+  return Array.from(map.entries()).map(([date, total]) => ({ date, total }));
+}
+
+function UsageChart({ buckets }: { buckets: DayBucket[] }) {
+  const max = Math.max(...buckets.map(b => b.total), 1);
+  const W = 580, H = 80, PAD = 4;
+  const barW = Math.floor((W - PAD * 2) / buckets.length) - 1;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={s.chart} aria-hidden>
+      {buckets.map((b, i) => {
+        const barH = Math.max(b.total > 0 ? Math.round((b.total / max) * (H - PAD * 2)) : 1, b.total > 0 ? 3 : 1);
+        const x = PAD + i * (barW + 1);
+        const y = H - PAD - barH;
+        return (
+          <rect
+            key={b.date}
+            x={x} y={y} width={barW} height={barH}
+            className={b.total > 0 ? s.barActive : s.barEmpty}
+            rx={1}
+          >
+            <title>{b.date}: {b.total} credits</title>
+          </rect>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const [apiKey, setApiKey]           = useState('');
-  const [showKey, setShowKey]         = useState(false);
-  const [purchased, setPurchased]     = useState(0);
-  const [addAmount, setAddAmount]     = useState('');
+  const [apiKey, setApiKey]   = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [purchased, setPurchased] = useState(0);
 
-  const [keyLoading, setKeyLoading]         = useState(false);
-  const [creditsLoading, setCreditsLoading] = useState(false);
-  const [toast, setToast]                   = useState<{ msg: string; err?: boolean } | null>(null);
+  const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (msg: string, err = false) => {
@@ -52,6 +103,19 @@ export default function SettingsPage() {
       .catch(() => {});
   }, [accessToken]);
 
+  /* ── Load usage events ──────────────────────────── */
+  useEffect(() => {
+    if (!accessToken) return;
+    setUsageLoading(true);
+    fetch('/api/user/credit-usage', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.json())
+      .then(json => setUsageEvents(Array.isArray(json?.data) ? json.data : []))
+      .catch(() => {})
+      .finally(() => setUsageLoading(false));
+  }, [accessToken]);
+
   /* ── Save API key ───────────────────────────────── */
   async function handleSaveKey() {
     if (!accessToken) return;
@@ -71,32 +135,11 @@ export default function SettingsPage() {
     }
   }
 
-  /* ── Add credits ────────────────────────────────── */
-  async function handleAddCredits() {
-    const amount = parseInt(addAmount, 10);
-    if (!accessToken || !Number.isFinite(amount) || amount <= 0) return;
-    setCreditsLoading(true);
-    try {
-      const newTotal = purchased + amount;
-      const res = await fetch('/api/user/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ credits_purchased: newTotal }),
-      });
-      if (!res.ok) throw new Error('Save failed');
-      setPurchased(newTotal);
-      setAddAmount('');
-      showToast(`${amount} credits added`);
-    } catch {
-      showToast('Failed to add credits', true);
-    } finally {
-      setCreditsLoading(false);
-    }
-  }
-
   if (!authChecked) return null;
 
   const totalCredits = DEFAULT_CREDITS + purchased;
+  const totalUsed = usageEvents.reduce((sum, e) => sum + e.credits_used, 0);
+  const buckets = buildDailyBuckets(usageEvents);
 
   return (
     <div className={s.page}>
@@ -167,7 +210,7 @@ export default function SettingsPage() {
           <div className={s.panelHead}>
             <div className={s.panelTitle}>Credits</div>
             <div className={s.panelDesc}>
-              Each account starts with {DEFAULT_CREDITS} default credits. Add purchased credits to track your total.
+              Credit balance and 30-day usage trend for your account.
             </div>
           </div>
           <div className={s.panelBody}>
@@ -184,32 +227,67 @@ export default function SettingsPage() {
                 <div className={s.creditStatKey}>Total</div>
                 <div className={`${s.creditStatVal} accent tnum`}>{totalCredits}</div>
               </div>
+              <div className={s.creditStat}>
+                <div className={s.creditStatKey}>Used (90d)</div>
+                <div className={`${s.creditStatVal} tnum`}>{totalUsed}</div>
+              </div>
             </div>
+          </div>
+        </div>
 
-            <div>
-              <div className="label" style={{ marginBottom: 6 }}>Add Purchased Credits</div>
-              <div className={s.addRow}>
-                <input
-                  className={s.addInput}
-                  type="number"
-                  min="1"
-                  value={addAmount}
-                  onChange={e => setAddAmount(e.target.value)}
-                  placeholder="100"
-                  onKeyDown={e => e.key === 'Enter' && handleAddCredits()}
-                />
-                <button
-                  className="btn sm primary"
-                  onClick={handleAddCredits}
-                  disabled={creditsLoading || !addAmount || parseInt(addAmount, 10) <= 0}
-                >
-                  {creditsLoading ? 'Adding…' : 'Add Credits'}
-                </button>
+        {/* Usage chart */}
+        <div className={s.panel}>
+          <div className={s.panelHead}>
+            <div className={s.panelTitle}>Usage Trend</div>
+            <div className={s.panelDesc}>Credits consumed per day over the last 30 days.</div>
+          </div>
+          <div className={s.panelBody}>
+            {usageLoading ? (
+              <div className={s.chartPlaceholder}>Loading…</div>
+            ) : (
+              <>
+                <UsageChart buckets={buckets} />
+                <div className={s.chartLegend}>
+                  <span>{buckets[0]?.date}</span>
+                  <span>{buckets[buckets.length - 1]?.date}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Usage history */}
+        <div className={s.panel}>
+          <div className={s.panelHead}>
+            <div className={s.panelTitle}>Usage History</div>
+            <div className={s.panelDesc}>Last 200 credit usage events (most recent first).</div>
+          </div>
+          <div className={s.panelBody} style={{ padding: 0 }}>
+            {usageLoading ? (
+              <div className={s.histEmpty}>Loading…</div>
+            ) : usageEvents.length === 0 ? (
+              <div className={s.histEmpty}>No usage recorded yet.</div>
+            ) : (
+              <div className={s.histTable}>
+                <div className={s.histHead}>
+                  <span>Date</span>
+                  <span className="tnum">Used</span>
+                  <span className="tnum">Remaining</span>
+                </div>
+                {usageEvents.map(e => (
+                  <div key={e.id} className={s.histRow}>
+                    <span className={s.histDate}>
+                      {new Date(e.created_at).toLocaleString('en-US', {
+                        month: 'short', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                    <span className={`${s.histUsed} tnum`}>−{e.credits_used}</span>
+                    <span className={`${s.histRemaining} tnum`}>{e.remaining_after}</span>
+                  </div>
+                ))}
               </div>
-              <div className="hint" style={{ marginTop: 8 }}>
-                Enter the number of credits from your last Suno purchase. Credits accumulate.
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

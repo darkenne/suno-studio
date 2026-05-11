@@ -37,3 +37,15 @@ create trigger user_settings_set_updated_at
 before update on public.user_settings
 for each row
 execute function public.set_updated_at();
+
+-- Per-user credit usage log
+create table if not exists public.credit_usage (
+  id              bigserial primary key,
+  user_id         text not null,
+  credits_used    integer not null,
+  remaining_after integer not null,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists credit_usage_user_created_idx
+  on public.credit_usage(user_id, created_at desc);

@@ -130,7 +130,7 @@
 
 .creditStats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
@@ -162,25 +162,94 @@
 }
 .creditStatVal.accent { color: var(--accent); }
 
-.addRow {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
+/* ── Chart ────────────────────────────── */
+.chart {
+  width: 100%;
+  height: 80px;
+  display: block;
+  overflow: visible;
 }
 
-.addInput {
-  width: 140px;
-  height: var(--ctrl-h);
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  padding: 0 12px;
-  color: var(--fg);
+.barActive { fill: var(--accent); opacity: 0.75; }
+.barEmpty  { fill: var(--bg-3); }
+
+.chartPlaceholder {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--mono);
-  font-size: 13px;
-  border-radius: 2px;
-  transition: border-color .12s;
+  font-size: 11px;
+  color: var(--fg-3);
 }
-.addInput:focus { border-color: var(--accent-line); }
+
+.chartLegend {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+  margin-top: 4px;
+}
+
+/* ── History table ────────────────────── */
+.histTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.histHead {
+  display: grid;
+  grid-template-columns: 1fr 72px 96px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.histHead span:not(:first-child) { text-align: right; }
+
+.histRow {
+  display: grid;
+  grid-template-columns: 1fr 72px 96px;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  transition: background .1s;
+}
+.histRow:last-child { border-bottom: none; }
+.histRow:hover { background: var(--bg-2); }
+
+.histDate {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+  letter-spacing: 0.02em;
+}
+
+.histUsed {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--err);
+}
+
+.histRemaining {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.histEmpty {
+  padding: 24px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
 
 .toast {
   position: fixed;
