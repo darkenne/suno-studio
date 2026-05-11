@@ -314,18 +314,36 @@ function Studio() {
         const remaining = Number(payload?.data);
         if (!Number.isFinite(remaining) || !mounted) return;
 
-        const total = creditedTotalRef.current;
-        setCredits({
-          total,
-          remaining,
-          used: Math.max(total - remaining, 0),
-        });
+        const prevTotal     = creditedTotalRef.current;
+        const prevRemaining = lastRemainingRef.current;
+        let nextTotal = prevTotal;
+
+        if (prevRemaining === null) {
+          // First sample: total is at least the current remaining
+          nextTotal = Math.max(prevTotal, remaining);
+        } else if (remaining > prevRemaining) {
+          // Remaining increased → recharge happened
+          nextTotal = prevTotal + (remaining - prevRemaining);
+        }
+
+        if (nextTotal !== prevTotal) {
+          setCreditedTotal(nextTotal);
+          creditedTotalRef.current = nextTotal;
+          // Persist offset so Settings page can show the same total
+          const offset = Math.max(nextTotal - DEFAULT_CREDITS, 0);
+          fetch('/api/user/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ credits_purchased: offset }),
+          }).catch(() => {});
+        }
+
+        setCredits({ total: nextTotal, remaining, used: Math.max(nextTotal - remaining, 0) });
         setCreditsLoading(false);
 
         // Log usage event when credits decrease
-        const prev = lastRemainingRef.current;
-        if (prev !== null && remaining < prev) {
-          const creditsUsed = prev - remaining;
+        if (prevRemaining !== null && remaining < prevRemaining) {
+          const creditsUsed = prevRemaining - remaining;
           fetch('/api/user/credit-usage', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },

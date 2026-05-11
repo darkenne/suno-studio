@@ -64,7 +64,8 @@ export default function SettingsPage() {
 
   const [apiKey, setApiKey]   = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [purchased, setPurchased] = useState(0);
+  const [creditsPurchased, setCreditsPurchased] = useState(0);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
 
   const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
@@ -98,7 +99,22 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(json => {
         setApiKey(json?.data?.suno_api_key ?? '');
-        setPurchased(Number(json?.data?.credits_purchased ?? 0));
+        setCreditsPurchased(Number(json?.data?.credits_purchased ?? 0));
+      })
+      .catch(() => {});
+  }, [accessToken]);
+
+  /* ── Fetch remaining credits ───────────────────── */
+  useEffect(() => {
+    if (!accessToken) return;
+    fetch('/api/generate/credit', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    })
+      .then(r => r.json())
+      .then(json => {
+        const r = Number(json?.data);
+        if (Number.isFinite(r)) setCreditsRemaining(r);
       })
       .catch(() => {});
   }, [accessToken]);
@@ -137,7 +153,7 @@ export default function SettingsPage() {
 
   if (!authChecked) return null;
 
-  const totalCredits = DEFAULT_CREDITS + purchased;
+  const totalCredits = DEFAULT_CREDITS + creditsPurchased;
   const totalUsed = usageEvents.reduce((sum, e) => sum + e.credits_used, 0);
   const buckets = buildDailyBuckets(usageEvents);
 
@@ -216,20 +232,20 @@ export default function SettingsPage() {
           <div className={s.panelBody}>
             <div className={s.creditStats}>
               <div className={s.creditStat}>
-                <div className={s.creditStatKey}>Default</div>
-                <div className={`${s.creditStatVal} tnum`}>{DEFAULT_CREDITS}</div>
-              </div>
-              <div className={s.creditStat}>
-                <div className={s.creditStatKey}>Purchased</div>
-                <div className={`${s.creditStatVal} tnum`}>{purchased}</div>
-              </div>
-              <div className={s.creditStat}>
                 <div className={s.creditStatKey}>Total</div>
-                <div className={`${s.creditStatVal} accent tnum`}>{totalCredits}</div>
+                <div className={`${s.creditStatVal} tnum`}>{totalCredits}</div>
               </div>
               <div className={s.creditStat}>
-                <div className={s.creditStatKey}>Used (90d)</div>
-                <div className={`${s.creditStatVal} tnum`}>{totalUsed}</div>
+                <div className={s.creditStatKey}>Remaining</div>
+                <div className={`${s.creditStatVal} accent tnum`}>
+                  {creditsRemaining !== null ? creditsRemaining : '—'}
+                </div>
+              </div>
+              <div className={s.creditStat}>
+                <div className={s.creditStatKey}>Used</div>
+                <div className={`${s.creditStatVal} tnum`}>
+                  {creditsRemaining !== null ? Math.max(totalCredits - creditsRemaining, 0) : '—'}
+                </div>
               </div>
             </div>
           </div>
