@@ -1,14 +1,30 @@
 'use client';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './login.module.css';
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: object) => void;
+          prompt: (callback?: (notification: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void;
+          renderButton: (el: HTMLElement, config: object) => void;
+          cancel: () => void;
+        };
+      };
+    };
+  }
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const oneTapRef = useRef(false);
 
   useEffect(() => {
     if (searchParams.get('error')) {
@@ -23,15 +39,65 @@ function LoginForm() {
     });
   }, [router]);
 
+  /* ── Google One Tap ─────────────────────────────── */
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || oneTapRef.current) return;
+
+    async function handleCredential(response: { credential: string }) {
+      setLoading(true);
+      setError(null);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+      });
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      } else {
+        router.replace('/');
+      }
+    }
+
+    function initOneTap() {
+      window.google?.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleCredential,
+        auto_select: true,
+        cancel_on_tap_outside: false,
+        context: 'signin',
+        itp_support: true,
+      });
+      window.google?.accounts.id.prompt();
+      oneTapRef.current = true;
+    }
+
+    if (window.google?.accounts?.id) {
+      initOneTap();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initOneTap;
+      document.head.appendChild(script);
+      return () => {
+        window.google?.accounts.id.cancel();
+        script.remove();
+      };
+    }
+    return () => window.google?.accounts.id.cancel();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleGoogleLogin() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
       setError(error.message);
@@ -50,9 +116,7 @@ function LoginForm() {
         <div className={styles.body}>
           <p className={`h-eyebrow ${styles.eyebrow}`}>Welcome</p>
           <h1 className={`h-display ${styles.heading}`}>Sign in to continue</h1>
-          <p className={styles.sub}>
-            Your AI music creation studio.
-          </p>
+          <p className={styles.sub}>Your AI music creation studio.</p>
 
           {error && <div className={styles.errorMsg}>Sign in failed. Please try again.</div>}
 
