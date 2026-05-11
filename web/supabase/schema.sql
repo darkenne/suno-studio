@@ -1,9 +1,14 @@
 create table if not exists public.studio_snapshots (
   workspace_id text primary key,
+  user_id text,
   tracks jsonb not null default '[]'::jsonb,
   playlists jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+create unique index if not exists studio_snapshots_user_id_idx
+  on public.studio_snapshots(user_id)
+  where user_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger as $$

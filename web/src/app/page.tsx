@@ -51,6 +51,7 @@ function Studio() {
   const [lyricsOpen, setLyricsOpen]         = useState(false);
   const [hydrated, setHydrated]             = useState(false);
   const [workspaceId, setWorkspaceId]       = useState<string | null>(null);
+  const [accessToken, setAccessToken]       = useState<string | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditedTotal, setCreditedTotal]   = useState<number>(BASE_CREDITS_TOTAL);
   const [lastRemaining, setLastRemaining]   = useState<number | null>(null);
@@ -75,51 +76,72 @@ function Studio() {
   const { jobs, batchTotal, batchTracks, isComplete, startBatch, cancelBatch } = useBatch();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* ── Auth guard ──────────────────────────────────── */
+  /* ── Auth guard + workspace resolution ───────────── */
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
+    let mounted = true;
+
+    const initialize = async () => {
+      const { data } = await supabase.auth.getSession();
       if (!data.session) {
         router.replace('/login');
-      } else {
-        setAuthChecked(true);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') router.replace('/login');
-    });
-    return () => subscription.unsubscribe();
-  }, [router]);
-
-  /* ── Resolve workspace id ─────────────────────────── */
-  useEffect(() => {
-    try {
-      const existing = localStorage.getItem(WORKSPACE_KEY);
-      if (existing) {
-        setWorkspaceId(existing);
         return;
       }
-      const id = typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `ws_${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(WORKSPACE_KEY, id);
-      setWorkspaceId(id);
-    } catch {
-      setWorkspaceId('default-workspace');
-    }
-  }, []);
+      if (!mounted) return;
+
+      const userId = data.session.user.id;
+      const token = data.session.access_token;
+
+      // Migrate legacy browser-session data to this account on first login
+      try {
+        const legacyId = localStorage.getItem(WORKSPACE_KEY);
+        if (legacyId && legacyId !== userId) {
+          fetch('/api/storage/migrate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ legacyWorkspaceId: legacyId }),
+          }).catch(() => {});
+        }
+        localStorage.setItem(WORKSPACE_KEY, userId);
+      } catch {
+        // localStorage may be unavailable
+      }
+
+      setAccessToken(token);
+      setWorkspaceId(userId);
+      setAuthChecked(true);
+    };
+
+    initialize();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') router.replace('/login');
+      if (event === 'TOKEN_REFRESHED' && session && mounted) {
+        setAccessToken(session.access_token);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   /* ── Load snapshot from Supabase ─────────────────── */
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId || !accessToken) return;
     let mounted = true;
     const controller = new AbortController();
 
     const loadSnapshot = async () => {
       try {
-        const res = await fetch(`/api/storage/snapshot?workspaceId=${encodeURIComponent(workspaceId)}`, {
+        const res = await fetch('/api/storage/snapshot', {
           signal: controller.signal,
           cache: 'no-store',
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         });
         if (!res.ok) return;
         const payload = await res.json();
@@ -147,7 +169,7 @@ function Studio() {
       mounted = false;
       controller.abort();
     };
-  }, [workspaceId]);
+  }, [workspaceId, accessToken]);
 
   useEffect(() => {
     creditedTotalRef.current = creditedTotal;
@@ -183,14 +205,17 @@ function Studio() {
 
   /* ── Persist snapshot to Supabase ────────────────── */
   useEffect(() => {
-    if (!hydrated || !workspaceId) return;
+    if (!hydrated || !workspaceId || !accessToken) return;
     const controller = new AbortController();
     const id = setTimeout(async () => {
       try {
         await fetch('/api/storage/snapshot', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId, tracks, playlists }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ tracks, playlists }),
           signal: controller.signal,
         });
       } catch {
@@ -202,7 +227,7 @@ function Studio() {
       controller.abort();
       clearTimeout(id);
     };
-  }, [tracks, playlists, hydrated, workspaceId]);
+  }, [tracks, playlists, hydrated, workspaceId, accessToken]);
 
   /* ── Audio ────────────────────────────────────────── */
   useEffect(() => {
