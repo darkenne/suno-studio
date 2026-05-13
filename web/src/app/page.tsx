@@ -223,8 +223,9 @@ function Studio() {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrack?.audioUrl) return;
-    if (isPlaying) audio.play().catch(() => {}); else audio.pause();
+    const hasUrl = !!(currentTrack?.audioUrl ?? currentTrack?.streamAudioUrl);
+    if (!audio || !hasUrl) return;
+    if (isPlaying) audio.play().catch(console.error); else audio.pause();
   }, [isPlaying, currentTrack]);
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
@@ -246,7 +247,7 @@ function Studio() {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying || !currentTrack || currentTrack.audioUrl) return;
+    if (!isPlaying || !currentTrack || (currentTrack.audioUrl ?? currentTrack.streamAudioUrl)) return;
     const id = setInterval(() => {
       setPlayhead(p => {
         if (p >= currentTrack.duration) { handleNextRef.current(); return 0; }
@@ -726,7 +727,19 @@ function Studio() {
                 tracks={tracks}
                 currentTrackId={currentTrack?.id}
                 onPlayPlaylist={playPlaylist}
-                onPlayTrack={(t) => playTrack(t)}
+                onPlayTrack={(t, playlistId) => {
+                  const pl = playlists.find(p => p.id === playlistId);
+                  if (pl) {
+                    const ordered = pl.tracks
+                      .slice()
+                      .sort((a, b) => a.position - b.position)
+                      .map(pt => tracks.find(tr => tr.id === pt.trackId))
+                      .filter((tr): tr is Track => Boolean(tr));
+                    const idx = ordered.findIndex(tr => tr.id === t.id);
+                    setQueue(ordered.slice(idx + 1).map(tr => tr.id));
+                  }
+                  playTrack(t);
+                }}
                 onRename={renamePlaylist}
                 onDescribe={describePlaylist}
                 onRemoveTrack={removeFromPlaylist}
