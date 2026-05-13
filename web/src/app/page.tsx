@@ -244,7 +244,7 @@ function Studio() {
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
     return () => { audio.removeEventListener('timeupdate', onTime); audio.removeEventListener('ended', onEnded); };
-  }, []);
+  }, [authChecked]);
 
   useEffect(() => {
     if (!isPlaying || !currentTrack || (currentTrack.audioUrl ?? currentTrack.streamAudioUrl)) return;
@@ -653,7 +653,7 @@ function Studio() {
             isPlaying={isPlaying}
             onSeek={t => {
               setPlayhead(t);
-              if (audioRef.current && currentTrack?.audioUrl) {
+              if (audioRef.current && (currentTrack?.audioUrl || currentTrack?.streamAudioUrl)) {
                 audioRef.current.currentTime = t;
               }
               setIsPlaying(true);
@@ -780,7 +780,7 @@ function Studio() {
         playhead={playhead}
         onSeek={v => {
           setPlayhead(v);
-          if (audioRef.current && currentTrack?.audioUrl) audioRef.current.currentTime = v;
+          if (audioRef.current && (currentTrack?.audioUrl || currentTrack?.streamAudioUrl)) audioRef.current.currentTime = v;
         }}
         onPrev={handlePrev}
         onNext={handleNext}
